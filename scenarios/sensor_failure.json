@@ -1,0 +1,29 @@
+{
+  "id": "sensor_failure",
+  "name": "10. Sensor Failure & Telemetry Loss",
+  "category": "Failure_Edge",
+  "description": "Acoustic wave gauge and rip current profiler fail simultaneously. Tests fallback risk assessment and confidence degradation.",
+  "initial_visitor_count": 35,
+  "duration_s": 300.0,
+  "initial_env_overrides": {},
+  "events": [
+    {
+      "time_offset_s": 8.0,
+      "event_type": "SENSOR_FAULT",
+      "params": {
+        "sensor_id": "rip_sensor_01",
+        "fault": "failed"
+      },
+      "description": "Rip current ADCP telemetry offline"
+    },
+    {
+      "time_offset_s": 15.0,
+      "event_type": "SENSOR_FAULT",
+      "params": {
+        "sensor_id": "wave_sensor_01",
+        "fault": "failed"
+      },
+      "description": "Wave gauge data stream lost"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "swimmer_distress",
+  "name": "7. Swimmer Distress & Rescue",
+  "category": "Emergency",
+  "description": "A swimmer in Zone B gets fatigued in moderate surf, signaling distress. Measures detection, decision, dispatch, and rescue latency.",
+  "initial_visitor_count": 30,
+  "duration_s": 300.0,
+  "initial_env_overrides": {},
+  "events": [
+    {
+      "time_offset_s": 12.0,
+      "event_type": "INJECT_DISTRESS",
+      "params": {
+        "zone_id": "ZONE_B"
+      },
+      "description": "Swimmer in Zone B enters STRUGGLING state"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "normal",
+  "name": "1. Normal Beach Condition",
+  "category": "Standard",
+  "description": "Calm sunny morning at RK Beach. Waves 0.7m, gentle tide (+0.15 m/hr), rip current minimal (0.15 m/s). Safe bathing in Zone A.",
+  "initial_visitor_count": 35,
+  "duration_s": 300.0,
+  "initial_env_overrides": {
+    "wave_height_m": 0.7,
+    "wave_period_s": 8.0,
+    "rip_current_speed_mps": 0.15,
+    "tide_level_m": 1.0,
+    "wind_speed_knots": 10.0
+  },
+  "events": []
+}

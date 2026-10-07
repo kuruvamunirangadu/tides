@@ -1,0 +1,25 @@
+{
+  "id": "rising_tide",
+  "name": "2. Rising Tide Surge",
+  "category": "Progressive",
+  "description": "Spring tidal cycle with rapid water rise (+0.85 m/hr). Shoreline encroaches into dry sand zones, isolating waders near sandbar.",
+  "initial_visitor_count": 45,
+  "duration_s": 360.0,
+  "initial_env_overrides": {
+    "tide_level_m": 1.4,
+    "tide_rate_of_change_m_hr": 0.85,
+    "tide_direction": "rising",
+    "wave_height_m": 1.1
+  },
+  "events": [
+    {
+      "time_offset_s": 15.0,
+      "event_type": "SET_TIDE_SURGE",
+      "params": {
+        "tide_rate_m_hr": 1.1,
+        "target_level_m": 2.2
+      },
+      "description": "Tidal influx accelerates across RK Beach sandbar"
+    }
+  ]
+}
