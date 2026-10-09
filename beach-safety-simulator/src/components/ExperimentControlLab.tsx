@@ -85,6 +85,21 @@ export const ExperimentControlLab: React.FC<ExperimentControlLabProps> = ({
   const [swimmerPct, setSwimmerPct] = useState<number>(60);
   const [riskTakerPct, setRiskTakerPct] = useState<number>(15);
   const [activeTab, setActiveTab] = useState<'sliders' | 'hazard_injection' | 'progression' | 'attribution'>('sliders');
+  const [activeInjectedHazard, setActiveInjectedHazard] = useState<string | null>(null);
+  const [activeProgression, setActiveProgression] = useState<string | null>(null);
+
+  const handleInjectHazard = (
+    key: 'STRONG_CURRENT' | 'HIGH_WAVES' | 'RIP_CURRENT' | 'POOR_VISIBILITY' | 'CROWD_SURGE' | 'RAPID_TIDE' | 'STORM_SQUALL' | 'RESTRICTED_BREACH' | 'COMPOUND_CRISIS'
+  ) => {
+    setActiveInjectedHazard(key);
+    onInjectHazardScenario(key);
+  };
+
+  const handleResetManualEnvironment = () => {
+    setActiveInjectedHazard(null);
+    setActiveProgression(null);
+    onResetManualEnvironment();
+  };
 
   const currentRiskScore = riskOverview?.overallBeachRiskScore || 15;
   const currentCategory: RiskCategory = riskOverview?.overallCategory || 'LOW';
@@ -586,7 +601,7 @@ export const ExperimentControlLab: React.FC<ExperimentControlLabProps> = ({
           {/* Reset Action */}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button
-              onClick={onResetManualEnvironment}
+              onClick={handleResetManualEnvironment}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -599,125 +614,285 @@ export const ExperimentControlLab: React.FC<ExperimentControlLabProps> = ({
       {/* Tab 2: Hazard Injection Matrix (9 Controlled Test Scenarios) */}
       {activeTab === 'hazard_injection' && (
         <div className="space-y-3">
-          <p className="text-xs text-slate-400">
-            Click any hazard card to inject precise, realistic marine stress conditions and test how the safety engine responds:
-          </p>
+          {activeInjectedHazard ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                </span>
+                <span className="font-bold">
+                  ⚡ ACTIVE INJECTED HAZARD:{' '}
+                  <span className="text-white uppercase font-black tracking-wide ml-1 underline decoration-amber-400">
+                    {activeInjectedHazard.replace(/_/g, ' ')}
+                  </span>
+                </span>
+              </div>
+              <button
+                onClick={handleResetManualEnvironment}
+                className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] font-bold border border-slate-700 hover:border-slate-500 transition cursor-pointer flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3 text-amber-400" />
+                Clear / Reset Injected Hazard
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">
+              Click any hazard card below to inject precise, realistic marine stress conditions and observe the safety engine response:
+            </p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {/* 1. High Breaking Waves */}
             <button
-              onClick={() => onInjectHazardScenario('HIGH_WAVES')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('HIGH_WAVES')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'HIGH_WAVES'
+                  ? 'bg-cyan-950/80 border-2 border-cyan-400 ring-2 ring-cyan-500/50 shadow-lg shadow-cyan-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs mb-1">
-                <Waves className="w-4 h-4 text-cyan-400" />
-                <span>1. High Breaking Waves (2.8m)</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs">
+                  <Waves className="w-4 h-4 text-cyan-400" />
+                  <span>1. High Breaking Waves (2.8m)</span>
+                </div>
+                {activeInjectedHazard === 'HIGH_WAVES' && (
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Wave Height: 2.8m | Period: 14s &rarr; Shorebreak hazard and swimming zone closure.
               </p>
+              {activeInjectedHazard === 'HIGH_WAVES' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 2. Strong Lateral Currents */}
             <button
-              onClick={() => onInjectHazardScenario('STRONG_CURRENT')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('STRONG_CURRENT')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'STRONG_CURRENT'
+                  ? 'bg-amber-950/80 border-2 border-amber-400 ring-2 ring-amber-500/50 shadow-lg shadow-amber-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-amber-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-amber-300 font-bold text-xs mb-1">
-                <Zap className="w-4 h-4 text-amber-400" />
-                <span>2. Strong Lateral Currents (1.5 m/s)</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span>2. Strong Lateral Currents (1.5 m/s)</span>
+                </div>
+                {activeInjectedHazard === 'STRONG_CURRENT' && (
+                  <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Current Speed: 1.5 m/s &rarr; Alongshore drift and fatigue acceleration.
               </p>
+              {activeInjectedHazard === 'STRONG_CURRENT' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 3. Seaward Rip Current Outflow */}
             <button
-              onClick={() => onInjectHazardScenario('RIP_CURRENT')}
-              className="p-3 rounded-xl bg-slate-950 border border-rose-500/30 hover:border-rose-500 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('RIP_CURRENT')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'RIP_CURRENT'
+                  ? 'bg-rose-950/80 border-2 border-rose-400 ring-2 ring-rose-500/50 shadow-lg shadow-rose-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-rose-500/30 hover:border-rose-500 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-rose-300 font-bold text-xs mb-1">
-                <Flame className="w-4 h-4 text-rose-400" />
-                <span>3. Seaward Rip Current Outflow</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                  <Flame className="w-4 h-4 text-rose-400" />
+                  <span>3. Seaward Rip Current Outflow</span>
+                </div>
+                {activeInjectedHazard === 'RIP_CURRENT' && (
+                  <CheckCircle2 className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Rip Chute Speed: 1.9 m/s &rarr; Victim swept offshore + UAV buoy drop dispatch.
               </p>
+              {activeInjectedHazard === 'RIP_CURRENT' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 4. Extreme Low Tide Drainage */}
             <button
-              onClick={() => onInjectHazardScenario('RAPID_TIDE')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('RAPID_TIDE')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'RAPID_TIDE'
+                  ? 'bg-teal-950/80 border-2 border-teal-400 ring-2 ring-teal-500/50 shadow-lg shadow-teal-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-teal-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-teal-300 font-bold text-xs mb-1">
-                <Waves className="w-4 h-4 text-teal-400" />
-                <span>4. Extreme Low Tide Drainage</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-teal-300 font-bold text-xs">
+                  <Waves className="w-4 h-4 text-teal-400" />
+                  <span>4. Extreme Low Tide Drainage</span>
+                </div>
+                {activeInjectedHazard === 'RAPID_TIDE' && (
+                  <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Tide drops to 0.45m &rarr; Exposed sandbars concentrate water velocity in chutes.
               </p>
+              {activeInjectedHazard === 'RAPID_TIDE' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 5. Dense Marine Fog */}
             <button
-              onClick={() => onInjectHazardScenario('POOR_VISIBILITY')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('POOR_VISIBILITY')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'POOR_VISIBILITY'
+                  ? 'bg-indigo-950/80 border-2 border-indigo-400 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-indigo-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs mb-1">
-                <Eye className="w-4 h-4 text-indigo-400" />
-                <span>5. Dense Marine Fog (0.8km)</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+                  <Eye className="w-4 h-4 text-indigo-400" />
+                  <span>5. Dense Marine Fog (0.8km)</span>
+                </div>
+                {activeInjectedHazard === 'POOR_VISIBILITY' && (
+                  <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Visibility: 800m &rarr; CCTV tracking confidence drops, thermal UAV patrol activated.
               </p>
+              {activeInjectedHazard === 'POOR_VISIBILITY' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 6. Storm Squall */}
             <button
-              onClick={() => onInjectHazardScenario('STORM_SQUALL')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('STORM_SQUALL')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'STORM_SQUALL'
+                  ? 'bg-blue-950/80 border-2 border-blue-400 ring-2 ring-blue-500/50 shadow-lg shadow-blue-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-blue-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-blue-300 font-bold text-xs mb-1">
-                <Wind className="w-4 h-4 text-blue-400" />
-                <span>6. Storm Squall (58 km/h Wind)</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-blue-300 font-bold text-xs">
+                  <Wind className="w-4 h-4 text-blue-400" />
+                  <span>6. Storm Squall (58 km/h Wind)</span>
+                </div>
+                {activeInjectedHazard === 'STORM_SQUALL' && (
+                  <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Wind: 58 km/h + Storm Rain &rarr; Mandatory beach clearance PA sirens.
               </p>
+              {activeInjectedHazard === 'STORM_SQUALL' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 7. Mass Crowd Surge */}
             <button
-              onClick={() => onInjectHazardScenario('CROWD_SURGE')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('CROWD_SURGE')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'CROWD_SURGE'
+                  ? 'bg-purple-950/80 border-2 border-purple-400 ring-2 ring-purple-500/50 shadow-lg shadow-purple-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-purple-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-purple-300 font-bold text-xs mb-1">
-                <Users className="w-4 h-4 text-purple-400" />
-                <span>7. Mass Crowd Surge (180 Swimmers)</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-purple-300 font-bold text-xs">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  <span>7. Mass Crowd Surge (180 Swimmers)</span>
+                </div>
+                {activeInjectedHazard === 'CROWD_SURGE' && (
+                  <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 180 bathers in Zone A &rarr; Extreme exposure pillar multiplying operational risk.
               </p>
+              {activeInjectedHazard === 'CROWD_SURGE' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 8. Restricted Rocky Shoal Breach */}
             <button
-              onClick={() => onInjectHazardScenario('RESTRICTED_BREACH')}
-              className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-rose-500/60 text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() => handleInjectHazard('RESTRICTED_BREACH')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-sm active:scale-[0.98] ${
+                activeInjectedHazard === 'RESTRICTED_BREACH'
+                  ? 'bg-rose-950/80 border-2 border-rose-400 ring-2 ring-rose-500/50 shadow-lg shadow-rose-950/60 scale-[1.01]'
+                  : 'bg-slate-950 border border-slate-800 hover:border-rose-500/60 hover:bg-slate-900/50'
+              }`}
             >
-              <div className="flex items-center gap-2 text-rose-300 font-bold text-xs mb-1">
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
-                <span>8. Restricted Rocky Shoal Breach</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  <span>8. Restricted Rocky Shoal Breach</span>
+                </div>
+                {activeInjectedHazard === 'RESTRICTED_BREACH' && (
+                  <CheckCircle2 className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Risk-takers enter rocky breakwater &rarr; Immediate geofence breach alert & whistle.
               </p>
+              {activeInjectedHazard === 'RESTRICTED_BREACH' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
 
+            {/* 9. Compound Multi-Hazard Crisis */}
             <button
-              onClick={() => onInjectHazardScenario('COMPOUND_CRISIS')}
-              className="p-3 rounded-xl bg-gradient-to-br from-rose-950/60 to-purple-950/60 border border-rose-500 text-left transition-all cursor-pointer group shadow-lg active:scale-[0.98]"
+              onClick={() => handleInjectHazard('COMPOUND_CRISIS')}
+              className={`p-3 rounded-xl text-left transition-all cursor-pointer group shadow-lg active:scale-[0.98] ${
+                activeInjectedHazard === 'COMPOUND_CRISIS'
+                  ? 'bg-gradient-to-br from-rose-900/90 to-purple-900/90 border-2 border-rose-300 ring-2 ring-rose-400/80 shadow-xl shadow-rose-950 scale-[1.01]'
+                  : 'bg-gradient-to-br from-rose-950/60 to-purple-950/60 border border-rose-500 hover:border-rose-400'
+              }`}
             >
-              <div className="flex items-center gap-2 text-rose-200 font-bold text-xs mb-1">
-                <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
-                <span>9. Compound Multi-Hazard Crisis</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 text-rose-200 font-bold text-xs">
+                  <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>9. Compound Multi-Hazard Crisis</span>
+                </div>
+                {activeInjectedHazard === 'COMPOUND_CRISIS' && (
+                  <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0 animate-pulse" />
+                )}
               </div>
               <p className="text-[10px] text-rose-100/80 leading-relaxed">
                 Waves (2.7m) + Rip (1.7 m/s) + 150 Crowd + Low Visibility &rarr; Multi-agency escalation.
               </p>
+              {activeInjectedHazard === 'COMPOUND_CRISIS' && (
+                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-300/60 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ ACTIVE INJECTION
+                </div>
+              )}
             </button>
           </div>
         </div>

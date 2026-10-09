@@ -274,3 +274,4 @@ gantt
 The **Integrated Coastal Beach Safety Platform** represents a modern, scientifically sound, and commercially viable solution for the Government of Andhra Pradesh. By combining deterministic oceanographic hydrodynamic models, live marine telemetry, edge Computer Vision, autonomous SAR drones, native Telugu acoustic communication, and frontline lifeguard terminals, this platform will protect millions of coastal visitors and eliminate preventable drowning fatalities across the State of Andhra Pradesh.
 
 **Source Code Repository**: [https://github.com/kuruvamunirangadu/tides](https://github.com/kuruvamunirangadu/tides)
+
