@@ -73,24 +73,139 @@ export const GISMap: React.FC<GISMapProps> = ({
 
       // 1. Layer 1 — Base Map (Dark topographic ocean vs Photorealistic Satellite Orthophoto)
       if (mapMode === 'satellite') {
-        // High-Resolution Satellite Orthophoto & Bathymetry
-        const satOcean = ctx.createLinearGradient(0, height * 0.25, 0, height);
-        satOcean.addColorStop(0, '#0284c7'); // Shallow shore turquoise
-        satOcean.addColorStop(0.2, '#0369a1'); // Nearshore shelf
-        satOcean.addColorStop(0.5, '#075985'); // Mid-depth coastal trench
-        satOcean.addColorStop(0.85, '#0c4a6e'); // Deep bay blue
-        satOcean.addColorStop(1, '#082f49'); // Oceanic abyss
-        ctx.fillStyle = satOcean;
-        ctx.fillRect(0, 0, width, height);
+        const isRushikonda = beach.id.includes('RUSHIKONDA') || beach.name.toLowerCase().includes('rushikonda');
+        const isSuryalanka = beach.id.includes('SURYALANKA') || beach.name.toLowerCase().includes('bapatla') || !isRushikonda;
 
-        // Submarine sandbar & reef relief texture
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
-        ctx.beginPath();
-        ctx.ellipse(width * 0.35, height * 0.65, width * 0.25, height * 0.1, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(width * 0.7, height * 0.72, width * 0.22, height * 0.08, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (isRushikonda) {
+          // --- RUSHIKONDA SATELLITE ORTHOPHOTO (CRESCENT COVE & ROCKY HEADLAND) ---
+          // Deep Cove Ocean with turquoise shelf
+          const satOcean = ctx.createLinearGradient(0, height * 0.2, 0, height);
+          satOcean.addColorStop(0, '#0284c7'); // Tropical cove turquoise
+          satOcean.addColorStop(0.2, '#0369a1'); // Nearshore azure
+          satOcean.addColorStop(0.5, '#075985'); // Mid-cove shelf
+          satOcean.addColorStop(0.8, '#0c4a6e'); // Deep outer bay
+          satOcean.addColorStop(1, '#082f49'); // Oceanic Bay of Bengal
+          ctx.fillStyle = satOcean;
+          ctx.fillRect(0, 0, width, height);
+
+          // Submerged Rocky Reefs & Central Structural Rip Trench
+          ctx.fillStyle = 'rgba(28, 25, 23, 0.7)';
+          ctx.beginPath();
+          ctx.ellipse(width * 0.25, height * 0.55, width * 0.16, height * 0.08, -0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Structural Rip Trench (Funneling offshore)
+          const ripGrad = ctx.createLinearGradient(width * 0.4, height * 0.35, width * 0.55, height);
+          ripGrad.addColorStop(0, 'rgba(8, 47, 73, 0.65)');
+          ripGrad.addColorStop(0.5, 'rgba(3, 105, 161, 0.45)');
+          ripGrad.addColorStop(1, 'rgba(12, 74, 110, 0.3)');
+          ctx.fillStyle = ripGrad;
+          ctx.beginPath();
+          ctx.ellipse(width * 0.46, height * 0.62, width * 0.12, height * 0.24, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Draw Land / Sand Area Polygon with Blue Flag Golden Sand
+          if (boundaryPixels.length > 0) {
+            const satLandGrad = ctx.createLinearGradient(0, 0, 0, height);
+            satLandGrad.addColorStop(0, '#44403c'); // Highway & Promenade
+            satLandGrad.addColorStop(0.25, '#78716c');
+            satLandGrad.addColorStop(0.5, '#d6d3d1');
+            satLandGrad.addColorStop(0.75, '#f5d0a9'); // Golden Blue Flag sand
+            satLandGrad.addColorStop(1, '#9c6644'); // Wet tide sand
+            ctx.fillStyle = satLandGrad;
+            ctx.beginPath();
+            ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
+            for (let i = 1; i < boundaryPixels.length; i++) {
+              ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Eastern Ghats Mountain Promontory on North/West
+          ctx.save();
+          ctx.fillStyle = '#14532d';
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(width * 0.3, 0);
+          ctx.bezierCurveTo(width * 0.32, height * 0.25, width * 0.28, height * 0.45, width * 0.18, height * 0.55);
+          ctx.lineTo(0, height * 0.48);
+          ctx.closePath();
+          ctx.fill();
+
+          // Rocky Cliff edge on promontory
+          ctx.fillStyle = '#292524';
+          ctx.beginPath();
+          ctx.moveTo(width * 0.18, height * 0.55);
+          ctx.lineTo(width * 0.24, height * 0.52);
+          ctx.lineTo(width * 0.28, height * 0.45);
+          ctx.lineTo(width * 0.22, height * 0.48);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+        } else {
+          // --- SURYALANKA SATELLITE ORTHOPHOTO (WIDE DELTA SHELF & CASUARINA) ---
+          const satOcean = ctx.createLinearGradient(0, height * 0.25, 0, height);
+          satOcean.addColorStop(0, '#0d9488'); // Jade delta shallows
+          satOcean.addColorStop(0.2, '#0f766e');
+          satOcean.addColorStop(0.5, '#0369a1'); // Wide flat shelf
+          satOcean.addColorStop(0.85, '#075985');
+          satOcean.addColorStop(1, '#082f49');
+          ctx.fillStyle = satOcean;
+          ctx.fillRect(0, 0, width, height);
+
+          // Dual Parallel Longshore Sandbars
+          ctx.fillStyle = 'rgba(94, 234, 212, 0.24)';
+          ctx.beginPath();
+          ctx.ellipse(width * 0.5, height * 0.52, width * 0.45, height * 0.05, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(width * 0.52, height * 0.72, width * 0.42, height * 0.06, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Long White Breaker Lines across sandbars
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+          ctx.lineWidth = 2;
+          for (let bx = 0; bx < width; bx += 30) {
+            ctx.beginPath();
+            ctx.moveTo(bx, height * 0.51);
+            ctx.lineTo(bx + 20, height * 0.51);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(bx + 10, height * 0.71);
+            ctx.lineTo(bx + 28, height * 0.71);
+            ctx.stroke();
+          }
+
+          // Draw Land / Sand Area Polygon (Flat Expansive Golden Sand)
+          if (boundaryPixels.length > 0) {
+            const satLandGrad = ctx.createLinearGradient(0, 0, 0, height);
+            satLandGrad.addColorStop(0, '#78350f'); // Inland red soil
+            satLandGrad.addColorStop(0.25, '#ca8a04');
+            satLandGrad.addColorStop(0.6, '#eab308'); // Golden flat sand
+            satLandGrad.addColorStop(0.85, '#fde047');
+            satLandGrad.addColorStop(1, '#a16207'); // Wet sand mirror flat
+            ctx.fillStyle = satLandGrad;
+            ctx.beginPath();
+            ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
+            for (let i = 1; i < boundaryPixels.length; i++) {
+              ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Dense Casuarina Forest Belt on Landward edge
+          ctx.fillStyle = '#14532d';
+          ctx.fillRect(0, 0, width, height * 0.16);
+
+          // Harita Resort Red Cottages
+          ctx.fillStyle = '#dc2626';
+          for (let rx = width * 0.15; rx < width * 0.85; rx += width * 0.18) {
+            ctx.fillRect(rx, height * 0.06, 16, 10);
+          }
+        }
 
         // High-precision WGS84 Satellite Geo-Grid
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -108,42 +223,24 @@ export const GISMap: React.FC<GISMapProps> = ({
           ctx.stroke();
         }
 
-        // Draw Photorealistic Satellite Sand / Land Boundary Polygon
-        if (boundaryPixels.length > 0) {
-          const satLandGrad = ctx.createLinearGradient(0, 0, 0, height);
-          satLandGrad.addColorStop(0, '#44403c'); // Coastal highway / promenade
-          satLandGrad.addColorStop(0.2, '#78716c'); // Promenade stone
-          satLandGrad.addColorStop(0.45, '#d6d3d1'); // Dry dune zone
-          satLandGrad.addColorStop(0.75, '#f5d0a9'); // Golden sand
-          satLandGrad.addColorStop(1, '#d4a373'); // Wet tidal sand
-          ctx.fillStyle = satLandGrad;
-          ctx.beginPath();
-          ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
-          for (let i = 1; i < boundaryPixels.length; i++) {
-            ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
-          }
-          ctx.closePath();
-          ctx.fill();
-
-          // Coastal greenery buffer on land
-          ctx.fillStyle = 'rgba(22, 101, 52, 0.4)';
-          ctx.fillRect(0, 0, width, 30);
-        }
-
         // Satellite Telemetry HUD Stamp
+        const locationTag = isRushikonda ? 'RUSHIKONDA BLUE FLAG COVE' : 'SURYALANKA BAPATLA SHELF';
         ctx.save();
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-        ctx.fillRect(width - 330, 60, 315, 42);
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(width - 330, 60, 315, 42);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.fillRect(width - 340, 60, 325, 48);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(width - 340, 60, 325, 48);
 
         ctx.fillStyle = '#38bdf8';
         ctx.font = 'bold 9px monospace';
-        ctx.fillText('🛰️ SATELLITE EO/IR ORTHOPHOTO (WGS84)', width - 320, 76);
+        ctx.fillText(`🛰️ SENTINEL-2 / WORLDVIEW-3 HIGH-RES ORTHOPHOTO`, width - 330, 75);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText(`${locationTag} | WGS84 EPSG:4326`, width - 330, 89);
         ctx.fillStyle = '#94a3b8';
         ctx.font = '8px monospace';
-        ctx.fillText(`EPSG:4326 | GSD: 0.3m/px | ALT: 1,200m | EO-OPTICAL`, width - 320, 92);
+        ctx.fillText(`GSD: 0.3m/px | ALT: 786 KM | TRUE-COLOR RGB`, width - 330, 101);
         ctx.restore();
       } else {
         // Standard Vector Cartography Base

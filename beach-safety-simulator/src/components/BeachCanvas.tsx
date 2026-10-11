@@ -144,6 +144,385 @@ function drawEscapeVectors(
   ctx.restore();
 }
 
+function drawPhotorealisticSatelliteImagery(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dynamicShorelineY: number,
+  isRushikonda: boolean,
+  environment: Environment,
+  waveOffset: number,
+  band: 'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY'
+) {
+  ctx.save();
+
+  if (isRushikonda) {
+    // =========================================================================
+    // 1. RUSHIKONDA BLUE FLAG BEACH (VIZAG) - CRESCENT COVE & ROCKY HEADLAND
+    // =========================================================================
+
+    // 1.1 Ocean Base (Crescent Cove & Continental Shelf)
+    const satOcean = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
+    if (band === 'RGB_TRUE_COLOR') {
+      satOcean.addColorStop(0, '#0284c7'); // Shallow turquoise shore
+      satOcean.addColorStop(0.15, '#0369a1'); // Nearshore azure
+      satOcean.addColorStop(0.38, '#075985'); // Mid-cove shelf
+      satOcean.addColorStop(0.72, '#0c4a6e'); // Deep outer cove
+      satOcean.addColorStop(1, '#082f49'); // Oceanic Bay of Bengal
+    } else if (band === 'NDWI_TURBIDITY') {
+      satOcean.addColorStop(0, '#083344');
+      satOcean.addColorStop(0.4, '#042f2e');
+      satOcean.addColorStop(1, '#020617');
+    } else {
+      // BATHYMETRY
+      satOcean.addColorStop(0, '#14b8a6'); // 0.8m
+      satOcean.addColorStop(0.2, '#06b6d4'); // 1.5m
+      satOcean.addColorStop(0.45, '#2563eb'); // 2.5m
+      satOcean.addColorStop(0.75, '#1e1b4b'); // 3.8m structural trench
+      satOcean.addColorStop(1, '#020617'); // 10m+
+    }
+    ctx.fillStyle = satOcean;
+    ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
+
+    // 1.2 Sun Glitter & Caustics in Shallow Cove
+    if (band === 'RGB_TRUE_COLOR') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      for (let i = 0; i < 35; i++) {
+        const cx = (Math.sin(i * 11.7 + waveOffset * 0.4) * 0.5 + 0.5) * width;
+        const cy = dynamicShorelineY + 25 + (Math.cos(i * 8.3) * 0.5 + 0.5) * (height - dynamicShorelineY - 35);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 32, 10, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 1.3 Submerged Basaltic Reef Outcrops (Base of Rushikonda Rocky Promontory)
+    ctx.fillStyle = band === 'NDWI_TURBIDITY' ? 'rgba(34, 211, 238, 0.4)' : 'rgba(28, 25, 23, 0.7)';
+    ctx.beginPath();
+    ctx.ellipse(220, dynamicShorelineY + 65, 95, 42, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(140, dynamicShorelineY + 105, 85, 38, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 1.4 Structural Rip Current Outflow Trench (between rocky reef and central sandbar)
+    const ripGrad = ctx.createLinearGradient(350, dynamicShorelineY, 490, dynamicShorelineY + 220);
+    if (band === 'NDWI_TURBIDITY') {
+      ripGrad.addColorStop(0, 'rgba(6, 182, 212, 0.75)');
+      ripGrad.addColorStop(0.5, 'rgba(34, 211, 238, 0.9)');
+      ripGrad.addColorStop(1, 'rgba(244, 63, 94, 0.65)');
+    } else if (band === 'BATHYMETRY') {
+      ripGrad.addColorStop(0, 'rgba(30, 27, 75, 0.85)');
+      ripGrad.addColorStop(0.5, 'rgba(15, 23, 42, 0.98)');
+      ripGrad.addColorStop(1, 'rgba(2, 6, 23, 1)');
+    } else {
+      ripGrad.addColorStop(0, 'rgba(8, 47, 73, 0.7)');
+      ripGrad.addColorStop(0.5, 'rgba(3, 105, 161, 0.5)');
+      ripGrad.addColorStop(1, 'rgba(12, 74, 110, 0.35)');
+    }
+    ctx.fillStyle = ripGrad;
+    ctx.beginPath();
+    ctx.moveTo(330, dynamicShorelineY);
+    ctx.bezierCurveTo(360, dynamicShorelineY + 75, 400, dynamicShorelineY + 135, 450, height);
+    ctx.lineTo(540, height);
+    ctx.bezierCurveTo(490, dynamicShorelineY + 135, 460, dynamicShorelineY + 75, 440, dynamicShorelineY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Rip Channel Surface Churn & Turbulence Ribbons
+    ctx.strokeStyle = band === 'NDWI_TURBIDITY' ? 'rgba(165, 243, 252, 0.95)' : 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 1.6;
+    for (let r = 0; r < 5; r++) {
+      const ripY = dynamicShorelineY + 20 + ((r * 40 + waveOffset * 28) % (height - dynamicShorelineY - 30));
+      const ripX = 380 + Math.sin(ripY * 0.04) * 25;
+      ctx.beginPath();
+      ctx.moveTo(ripX - 22, ripY);
+      ctx.lineTo(ripX + 26, ripY + 14);
+      ctx.stroke();
+    }
+
+    // 1.5 Crescent Sand Shore (Golden Blue Flag Sand & Wet Swash Zone)
+    const satSand = ctx.createLinearGradient(0, 0, 0, dynamicShorelineY);
+    satSand.addColorStop(0, '#57534e');
+    satSand.addColorStop(0.25, '#78716c');
+    satSand.addColorStop(0.5, '#e7e5e4');
+    satSand.addColorStop(0.8, '#f5d0a9');
+    satSand.addColorStop(1, '#9c6644');
+    ctx.fillStyle = satSand;
+    ctx.fillRect(0, 0, width, dynamicShorelineY);
+
+    // Wet sand reflection sheen
+    ctx.fillStyle = 'rgba(186, 230, 253, 0.22)';
+    ctx.fillRect(0, dynamicShorelineY - 14, width, 18);
+
+    // 1.6 Vizag Beach Road & Blue Flag Paved Promenade
+    ctx.fillStyle = '#27272a';
+    ctx.fillRect(0, 0, width, 38);
+    ctx.strokeStyle = '#e4e4e7';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([12, 8]);
+    ctx.beginPath();
+    ctx.moveTo(0, 19);
+    ctx.lineTo(width, 19);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Paved Promenade
+    ctx.fillStyle = '#52525b';
+    ctx.fillRect(0, 38, width, 22);
+
+    // Palm Tree clusters along promenade with shadows
+    for (let px = 60; px < width; px += 95) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(px + 4, 48 + 4, 8, 4, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(px, 48, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(px - 1, 47, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Blue Flag Cabanas & Wooden Boardwalks
+    for (let bx = 280; bx < width - 100; bx += 140) {
+      ctx.fillStyle = '#a16207';
+      ctx.fillRect(bx, 60, 10, dynamicShorelineY - 75);
+
+      const umbrellaColors = ['#ef4444', '#3b82f6', '#eab308', '#10b981'];
+      for (let u = 0; u < 3; u++) {
+        const ux = bx + (u - 1) * 22;
+        const uy = dynamicShorelineY - 45 + (u % 2) * 12;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(ux + 3, uy + 4, 7, 5, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = umbrellaColors[(bx / 10 + u) % umbrellaColors.length];
+        ctx.beginPath();
+        ctx.arc(ux, uy, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 1.7 Eastern Ghats Mountain Promontory (North Headland Cove)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(260, 0);
+    ctx.bezierCurveTo(275, dynamicShorelineY * 0.4, 255, dynamicShorelineY + 40, 210, dynamicShorelineY + 95);
+    ctx.bezierCurveTo(170, dynamicShorelineY + 125, 90, dynamicShorelineY + 120, 0, dynamicShorelineY + 75);
+    ctx.closePath();
+
+    const hillGrad = ctx.createLinearGradient(0, 0, 240, dynamicShorelineY + 100);
+    hillGrad.addColorStop(0, '#14532d');
+    hillGrad.addColorStop(0.4, '#166534');
+    hillGrad.addColorStop(0.75, '#1b4332');
+    hillGrad.addColorStop(1, '#44403c');
+    ctx.fillStyle = hillGrad;
+    ctx.fill();
+
+    // Granite ledges
+    ctx.fillStyle = '#292524';
+    ctx.beginPath();
+    ctx.moveTo(210, dynamicShorelineY + 95);
+    ctx.lineTo(170, dynamicShorelineY + 125);
+    ctx.lineTo(140, dynamicShorelineY + 130);
+    ctx.lineTo(120, dynamicShorelineY + 115);
+    ctx.lineTo(165, dynamicShorelineY + 80);
+    ctx.closePath();
+    ctx.fill();
+
+    // Winding Hill Road
+    ctx.strokeStyle = '#71717a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, 30);
+    ctx.bezierCurveTo(120, 45, 180, dynamicShorelineY * 0.6, 170, dynamicShorelineY + 40);
+    ctx.stroke();
+
+    // Hilltop Villa
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(110, 35, 18, 12);
+    ctx.fillStyle = '#f87171';
+    ctx.fillRect(112, 37, 7, 8);
+    ctx.restore();
+
+    // 1.8 Breakers crashing against headland rocks
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 3.5;
+    for (let w = 0; w < 3; w++) {
+      const foamRad = 35 + w * 20 + Math.sin(waveOffset * 2 + w) * 8;
+      ctx.beginPath();
+      ctx.arc(200, dynamicShorelineY + 95, foamRad, 0.4, 1.8);
+      ctx.stroke();
+    }
+
+    // Scalloped crescent wave trains rolling onto sand
+    for (let wx = 220; wx < width; wx += 35) {
+      const wavePhase = Math.sin(wx * 0.025 + waveOffset * 1.8) * (4 + environment.waveHeight * 2.2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(wx, dynamicShorelineY + 15 + wavePhase);
+      ctx.lineTo(wx + 24, dynamicShorelineY + 15 + wavePhase);
+      ctx.stroke();
+    }
+
+  } else {
+    // =========================================================================
+    // 2. SURYALANKA / BAPATLA BEACH - EXPANSIVE CONTINENTAL SHELF & CASUARINA
+    // =========================================================================
+
+    // 2.1 Delta Coastal Waters
+    const satOcean = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
+    if (band === 'RGB_TRUE_COLOR') {
+      satOcean.addColorStop(0, '#0d9488');
+      satOcean.addColorStop(0.18, '#0f766e');
+      satOcean.addColorStop(0.45, '#0369a1');
+      satOcean.addColorStop(0.8, '#075985');
+      satOcean.addColorStop(1, '#082f49');
+    } else if (band === 'NDWI_TURBIDITY') {
+      satOcean.addColorStop(0, '#042f2e');
+      satOcean.addColorStop(0.3, '#083344');
+      satOcean.addColorStop(1, '#020617');
+    } else {
+      satOcean.addColorStop(0, '#10b981');
+      satOcean.addColorStop(0.3, '#06b6d4');
+      satOcean.addColorStop(0.7, '#1d4ed8');
+      satOcean.addColorStop(1, '#0f172a');
+    }
+    ctx.fillStyle = satOcean;
+    ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
+
+    // 2.2 Dual Parallel Longshore Sandbars
+    ctx.fillStyle = band === 'NDWI_TURBIDITY' ? 'rgba(34, 211, 238, 0.4)' : 'rgba(94, 234, 212, 0.22)';
+    ctx.beginPath();
+    ctx.ellipse(width * 0.5, dynamicShorelineY + 45, width * 0.48, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(width * 0.55, dynamicShorelineY + 115, width * 0.46, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Breaking White Surf Lines across the sandbars
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 2.5;
+    for (let bx = 0; bx < width; bx += 20) {
+      const foamSwell = Math.sin(bx * 0.04 + waveOffset * 1.4) * 3;
+      ctx.beginPath();
+      ctx.moveTo(bx, dynamicShorelineY + 43 + foamSwell);
+      ctx.lineTo(bx + 14, dynamicShorelineY + 43 + foamSwell);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(bx + 8, dynamicShorelineY + 112 + foamSwell);
+      ctx.lineTo(bx + 22, dynamicShorelineY + 112 + foamSwell);
+      ctx.stroke();
+    }
+
+    // 2.3 Vast Flat Golden Sand & Intertidal Wet Flat
+    const satSand = ctx.createLinearGradient(0, 0, 0, dynamicShorelineY);
+    satSand.addColorStop(0, '#78350f');
+    satSand.addColorStop(0.2, '#ca8a04');
+    satSand.addColorStop(0.5, '#eab308');
+    satSand.addColorStop(0.85, '#fde047');
+    satSand.addColorStop(1, '#a16207');
+    ctx.fillStyle = satSand;
+    ctx.fillRect(0, 0, width, dynamicShorelineY);
+
+    ctx.fillStyle = 'rgba(186, 230, 253, 0.28)';
+    ctx.fillRect(0, dynamicShorelineY - 26, width, 32);
+
+    // 2.4 Casuarina Forest Belt
+    const forestGrad = ctx.createLinearGradient(0, 0, 0, 60);
+    forestGrad.addColorStop(0, '#14532d');
+    forestGrad.addColorStop(0.6, '#166534');
+    forestGrad.addColorStop(1, '#15803d');
+    ctx.fillStyle = forestGrad;
+    ctx.fillRect(0, 0, width, 55);
+
+    for (let cx = 15; cx < width; cx += 22) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(cx + 3, 50, 7, 4, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = (cx % 44 === 0) ? '#14532d' : '#166534';
+      ctx.beginPath();
+      ctx.arc(cx, 44, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(cx - 2, 42, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Harita Beach Resort Cottages
+    for (let rx = 120; rx < width - 120; rx += 180) {
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(rx, 22, 22, 14);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(rx + 2, 24, 18, 5);
+      ctx.fillStyle = '#d97706';
+      ctx.fillRect(rx + 8, 36, 6, 26);
+    }
+
+    // Coastal Access Road
+    ctx.fillStyle = '#3f3f46';
+    ctx.fillRect(0, 0, width, 18);
+    ctx.strokeStyle = '#e4e4e7';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(0, 9);
+    ctx.lineTo(width, 9);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // =========================================================================
+  // 3. UNIVERSAL WGS84 GEO-GRID & SATELLITE OPTICAL RETICLE
+  // =========================================================================
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx < width; gx += 100) {
+    ctx.beginPath();
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, height);
+    ctx.stroke();
+  }
+  for (let gy = 0; gy < height; gy += 100) {
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(width, gy);
+    ctx.stroke();
+  }
+
+  // Central Optical Reticle Crosshairs
+  const midX = width / 2;
+  const midY = height / 2;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(midX - 16, midY);
+  ctx.lineTo(midX - 4, midY);
+  ctx.moveTo(midX + 4, midY);
+  ctx.lineTo(midX + 16, midY);
+  ctx.moveTo(midX, midY - 16);
+  ctx.lineTo(midX, midY - 4);
+  ctx.moveTo(midX, midY + 4);
+  ctx.lineTo(midX, midY + 16);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(midX, midY, 12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 interface BeachCanvasProps {
   beach: Beach;
   environment: Environment;
@@ -187,6 +566,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
   const droneRotorRef = useRef<number>(0);
 
   const [viewMode, setViewMode] = useState<CanvasViewMode>('tactical');
+  const [satelliteBand, setSatelliteBand] = useState<'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY'>('RGB_TRUE_COLOR');
   const [showStreamlines, setShowStreamlines] = useState<boolean>(true);
   const [showCCTV, setShowCCTV] = useState<boolean>(showCCTVCones);
   const [showGeofences, setShowGeofences] = useState<boolean>(true);
@@ -215,73 +595,19 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     // =========================================================================
 
     if (viewMode === 'satellite') {
-      // SATELLITE RECONNAISSANCE MODE: Photorealistic coastal imagery
-      // 1.1 Deep satellite ocean with bathymetric depth gradient
-      const satOcean = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
-      satOcean.addColorStop(0, '#0284c7'); // Shallow turquoise shore
-      satOcean.addColorStop(0.18, '#0369a1'); // Sandbar transition
-      satOcean.addColorStop(0.45, '#075985'); // Mid-depth coastal shelf
-      satOcean.addColorStop(0.8, '#0c4a6e'); // Deep outer bay
-      satOcean.addColorStop(1, '#082f49'); // Deep ocean abyss
-      ctx.fillStyle = satOcean;
-      ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
-
-      // Underwater sandbars & submarine trenches (Procedural optical texture)
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-      ctx.beginPath();
-      ctx.ellipse(320, dynamicShorelineY + 50, 180, 30, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(820, dynamicShorelineY + 55, 200, 35, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Deep rip trench between sandbars (Darker blue channel)
-      ctx.fillStyle = 'rgba(12, 74, 110, 0.35)';
-      ctx.fillRect(500, dynamicShorelineY, 120, height - dynamicShorelineY);
-
-      // 1.2 Satellite Sand Shore & Promenade
-      const satSand = ctx.createLinearGradient(0, 0, 0, dynamicShorelineY);
-      satSand.addColorStop(0, '#78716c'); // Urban asphalt / promenade
-      satSand.addColorStop(0.2, '#a8a29e');
-      satSand.addColorStop(0.35, '#d6d3d1');
-      satSand.addColorStop(0.55, '#e7e5e4'); // Dry dunes
-      satSand.addColorStop(0.85, '#f5d0a9'); // Golden sand
-      satSand.addColorStop(1, '#d4a373'); // Wet tide-washed sand
-      ctx.fillStyle = satSand;
-      ctx.fillRect(0, 0, width, dynamicShorelineY);
-
-      // Promenade coastal highway & greenery buffer
-      ctx.fillStyle = '#1c1917';
-      ctx.fillRect(0, 0, width, 40);
-      ctx.fillStyle = '#15803d'; // Coastal shrub line
-      ctx.fillRect(0, 40, width, 14);
-
-      // Satellite Geo-Grid Lines (100m grid overlay)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      for (let gx = 0; gx < width; gx += 100) {
-        ctx.beginPath();
-        ctx.moveTo(gx, 0);
-        ctx.lineTo(gx, height);
-        ctx.stroke();
-      }
-      for (let gy = 0; gy < height; gy += 100) {
-        ctx.beginPath();
-        ctx.moveTo(0, gy);
-        ctx.lineTo(width, gy);
-        ctx.stroke();
-      }
-
-      // Foamy breaking surf on sandbar crests
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.lineWidth = 2.5;
-      for (let sx = 0; sx < width; sx += 25) {
-        const surfWave = Math.sin(sx * 0.03 + waveOffsetRef.current * 1.5) * (3 + environment.waveHeight * 2);
-        ctx.beginPath();
-        ctx.moveTo(sx, dynamicShorelineY + 35 + surfWave);
-        ctx.lineTo(sx + 15, dynamicShorelineY + 35 + surfWave);
-        ctx.stroke();
-      }
+      // PHOTOREALISTIC SATELLITE ORTHOPHOTO IMAGERY (WGS84 SENSORS)
+      const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
+      const isRushikonda = !isSuryalanka;
+      drawPhotorealisticSatelliteImagery(
+        ctx,
+        width,
+        height,
+        dynamicShorelineY,
+        isRushikonda,
+        environment,
+        waveOffsetRef.current,
+        satelliteBand
+      );
     } else if (viewMode === 'thermal') {
       // THERMAL INFRARED (FLIR / FALSE-COLOR IRONBOW SPECTRUM)
       // Cool Ocean (18°C - 24°C: Dark Purple / Indigo)
@@ -967,18 +1293,29 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       : '17°46\'46"N  83°23\'18"E | RUSHIKONDA BLUE FLAG';
 
     if (viewMode === 'satellite') {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.fillRect(15, 55, 300, 36);
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(15, 55, 300, 36);
+      const beachName = isSuryalanka ? 'SURYALANKA BAPATLA SHELF' : 'RUSHIKONDA BLUE FLAG COVE';
+      const bandName =
+        satelliteBand === 'RGB_TRUE_COLOR'
+          ? 'RGB TRUE-COLOR [432]'
+          : satelliteBand === 'NDWI_TURBIDITY'
+          ? 'NDWI RIP TURBIDITY INDEX'
+          : 'BATHYMETRIC DEPTH CONTOURS';
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.fillRect(15, 55, 340, 48);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(15, 55, 340, 48);
 
       ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`🛰️ SENTINEL-2 / WORLDVIEW-3 HIGH-RES ORTHOPHOTO`, 25, 70);
+      ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 9px monospace';
-      ctx.fillText('🛰️ SATELLITE OPTICAL RECON [EO/IR] (WGS84)', 25, 68);
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(`${beachName} | ${coordStr}`, 25, 84);
+      ctx.fillStyle = '#94a3b8';
       ctx.font = '8px monospace';
-      ctx.fillText(`${coordStr} | ALT: 850m | GSD: 0.25m`, 25, 82);
+      ctx.fillText(`BAND: ${bandName} | GSD: 0.3m/px | ALT: 786 KM (LEO)`, 25, 96);
     } else if (viewMode === 'thermal') {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
       ctx.fillRect(15, 55, 260, 36);
@@ -1006,6 +1343,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     isNightMode,
     selectedVisitorId,
     viewMode,
+    satelliteBand,
     showStreamlines,
     showCCTV,
     showGeofences,
@@ -1132,6 +1470,43 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Floating Satellite Spectral Band Selector */}
+      {viewMode === 'satellite' && (
+        <div className="absolute top-14 right-2.5 z-20 flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-xl border border-blue-500/50 shadow-xl backdrop-blur-md text-xs font-mono">
+          <span className="text-[10px] text-blue-300 font-bold px-1.5">BAND:</span>
+          <button
+            onClick={() => setSatelliteBand('RGB_TRUE_COLOR')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'RGB_TRUE_COLOR'
+                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            🌍 True Color Orthophoto
+          </button>
+          <button
+            onClick={() => setSatelliteBand('NDWI_TURBIDITY')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'NDWI_TURBIDITY'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm font-extrabold ring-1 ring-cyan-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            🌊 NDWI Rip Turbulence
+          </button>
+          <button
+            onClick={() => setSatelliteBand('BATHYMETRY')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'BATHYMETRY'
+                ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            📊 Bathymetric Depths
+          </button>
+        </div>
+      )}
 
       <canvas
         ref={canvasRef}
