@@ -71,16 +71,18 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
                     </span>
                   </td>
                   <td className="py-2 px-3 text-emerald-400">
-                    {inc.detection_latency_s !== undefined ? `${inc.detection_latency_s.toFixed(1)}s` : '--'}
+                    {typeof inc.detection_latency_s === 'number' ? `${inc.detection_latency_s.toFixed(1)}s` : '--'}
                   </td>
                   <td className="py-2 px-3 text-purple-400">
-                    {inc.response_latency_s !== undefined ? `${inc.response_latency_s.toFixed(1)}s` : '--'}
+                    {typeof inc.response_latency_s === 'number' ? `${inc.response_latency_s.toFixed(1)}s` : '--'}
                   </td>
                   <td className="py-2 px-3 text-cyan-400">
-                    {inc.resolution_duration_s !== undefined ? `${inc.resolution_duration_s.toFixed(1)}s` : 'In Progress'}
+                    {typeof inc.resolution_duration_s === 'number' ? `${inc.resolution_duration_s.toFixed(1)}s` : 'In Progress'}
                   </td>
                   <td className="py-2 px-3 text-slate-300">
-                    {inc.dispatched_resource_ids.length > 0 ? inc.dispatched_resource_ids.join(', ') : 'None'}
+                    {Array.isArray(inc.dispatched_resource_ids) && inc.dispatched_resource_ids.length > 0
+                      ? inc.dispatched_resource_ids.join(', ')
+                      : 'None'}
                   </td>
                   <td className="py-2 px-3 text-emerald-400 font-semibold">
                     {inc.outcome || 'Handling'}

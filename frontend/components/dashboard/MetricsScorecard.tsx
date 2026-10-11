@@ -21,7 +21,7 @@ export const MetricsScorecard: React.FC<MetricsScorecardProps> = ({ metrics }) =
           </h3>
         </div>
         <span className="text-[11px] font-mono text-emerald-400">
-          Accuracy: {metrics.detection_accuracy_pct.toFixed(1)}%
+          Accuracy: {typeof metrics.detection_accuracy_pct === 'number' ? `${metrics.detection_accuracy_pct.toFixed(1)}%` : '--'}
         </span>
       </div>
 
@@ -30,7 +30,7 @@ export const MetricsScorecard: React.FC<MetricsScorecardProps> = ({ metrics }) =
         <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-lg">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Detection Latency</div>
           <div className="text-xl font-black font-mono text-emerald-400 mt-1">
-            {metrics.avg_detection_latency_s.toFixed(1)}s
+            {typeof metrics.avg_detection_latency_s === 'number' ? `${metrics.avg_detection_latency_s.toFixed(1)}s` : '--'}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">Sensor to Hazard ID</div>
         </div>
@@ -39,7 +39,7 @@ export const MetricsScorecard: React.FC<MetricsScorecardProps> = ({ metrics }) =
         <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-lg">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Decision Latency</div>
           <div className="text-xl font-black font-mono text-cyan-400 mt-1">
-            {metrics.avg_decision_latency_s.toFixed(1)}s
+            {typeof metrics.avg_decision_latency_s === 'number' ? `${metrics.avg_decision_latency_s.toFixed(1)}s` : '--'}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">Rule / Action formulation</div>
         </div>
@@ -48,7 +48,7 @@ export const MetricsScorecard: React.FC<MetricsScorecardProps> = ({ metrics }) =
         <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-lg">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Warning Latency</div>
           <div className="text-xl font-black font-mono text-amber-400 mt-1">
-            {metrics.avg_warning_latency_s.toFixed(1)}s
+            {typeof metrics.avg_warning_latency_s === 'number' ? `${metrics.avg_warning_latency_s.toFixed(1)}s` : '--'}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">PA & LED Board update</div>
         </div>
@@ -57,7 +57,7 @@ export const MetricsScorecard: React.FC<MetricsScorecardProps> = ({ metrics }) =
         <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-lg">
           <div className="text-[10px] text-slate-400 uppercase font-semibold">Dispatch Latency</div>
           <div className="text-xl font-black font-mono text-purple-400 mt-1">
-            {metrics.avg_dispatch_latency_s.toFixed(1)}s
+            {typeof metrics.avg_dispatch_latency_s === 'number' ? `${metrics.avg_dispatch_latency_s.toFixed(1)}s` : '--'}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">Lifeguard/Drone deploy</div>
         </div>

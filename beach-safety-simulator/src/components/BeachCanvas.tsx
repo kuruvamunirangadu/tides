@@ -32,7 +32,7 @@ import {
   Layers,
 } from 'lucide-react';
 
-export type CanvasViewMode = 'tactical' | 'satellite' | 'thermal' | 'hydrodynamic';
+export type CanvasViewMode = 'tactical' | 'satellite' | 'heat' | 'sat_heat' | 'thermal' | 'hydrodynamic';
 
 function drawComputerVisionHUD(
   ctx: CanvasRenderingContext2D,
@@ -523,6 +523,76 @@ function drawPhotorealisticSatelliteImagery(
   ctx.restore();
 }
 
+function drawRiskHeatmap(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dynamicShorelineY: number,
+  beach: Beach,
+  riskOverview?: BeachRiskOverview,
+  hazards: Hazard[] = [],
+  waveOffset: number = 0
+) {
+  ctx.save();
+
+  // 1. Render zone risk heat gradients (continuous interpolation from green -> yellow -> orange -> red)
+  beach.zones.forEach((zone) => {
+    const za = riskOverview?.zoneAssessments[zone.id];
+    const score = za?.overallScore ?? 15;
+    const centerX = zone.x + zone.width / 2;
+    const centerY = zone.y + zone.height / 2;
+    const radius = Math.max(zone.width, zone.height) * 0.72 + Math.sin(waveOffset * 1.5) * 8;
+
+    let heatColorInner = 'rgba(34, 197, 94, 0.38)'; // 0-24: LOW Green
+    let heatColorOuter = 'rgba(34, 197, 94, 0)';
+
+    if (score >= 75) {
+      // 75-100: CRITICAL Red
+      heatColorInner = 'rgba(239, 68, 68, 0.68)';
+      heatColorOuter = 'rgba(239, 68, 68, 0)';
+    } else if (score >= 50) {
+      // 50-74: HIGH Orange
+      heatColorInner = 'rgba(249, 115, 22, 0.55)';
+      heatColorOuter = 'rgba(249, 115, 22, 0)';
+    } else if (score >= 25) {
+      // 25-49: MODERATE Yellow
+      heatColorInner = 'rgba(234, 179, 8, 0.46)';
+      heatColorOuter = 'rgba(234, 179, 8, 0)';
+    }
+
+    const radGrad = ctx.createRadialGradient(centerX, centerY, 15, centerX, centerY, radius);
+    radGrad.addColorStop(0, heatColorInner);
+    radGrad.addColorStop(0.65, heatColorInner.replace(/[\d\.]+\)$/, '0.18)'));
+    radGrad.addColorStop(1, heatColorOuter);
+
+    ctx.fillStyle = radGrad;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 2. Focused hazard plume (e.g. rip current or severe breaker trench)
+  const ripHazard = hazards.find((h) => h.type === 'RIP_CURRENT');
+  if (ripHazard) {
+    const ripX = 560;
+    const ripY = dynamicShorelineY + 90;
+    const ripRad = 135 + Math.sin(waveOffset * 2.5) * 12;
+
+    const ripGrad = ctx.createRadialGradient(ripX, ripY, 12, ripX, ripY, ripRad);
+    ripGrad.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+    ripGrad.addColorStop(0.45, 'rgba(249, 115, 22, 0.55)');
+    ripGrad.addColorStop(0.8, 'rgba(234, 179, 8, 0.25)');
+    ripGrad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+
+    ctx.fillStyle = ripGrad;
+    ctx.beginPath();
+    ctx.arc(ripX, ripY, ripRad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 interface BeachCanvasProps {
   beach: Beach;
   environment: Environment;
@@ -594,7 +664,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     // 1. TERRAIN & WATER BACKGROUND RENDERING (BY VIEW MODE)
     // =========================================================================
 
-    if (viewMode === 'satellite') {
+    if (viewMode === 'satellite' || viewMode === 'sat_heat') {
       // PHOTOREALISTIC SATELLITE ORTHOPHOTO IMAGERY (WGS84 SENSORS)
       const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
       const isRushikonda = !isSuryalanka;
@@ -698,6 +768,20 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       }
       ctx.fillStyle = waterGrad;
       ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
+    }
+
+    // Dynamic Risk Heatmap Overlay (Active in 'heat' and 'sat_heat' modes)
+    if (viewMode === 'heat' || viewMode === 'sat_heat') {
+      drawRiskHeatmap(
+        ctx,
+        width,
+        height,
+        dynamicShorelineY,
+        beach,
+        riskOverview,
+        hazards,
+        waveOffsetRef.current
+      );
     }
 
     // =========================================================================
@@ -1292,7 +1376,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       ? '15°50\'04"N  80°30\'18"E | BAPATLA SHELF'
       : '17°46\'46"N  83°23\'18"E | RUSHIKONDA BLUE FLAG';
 
-    if (viewMode === 'satellite') {
+    if (viewMode === 'satellite' || viewMode === 'sat_heat') {
       const beachName = isSuryalanka ? 'SURYALANKA BAPATLA SHELF' : 'RUSHIKONDA BLUE FLAG COVE';
       const bandName =
         satelliteBand === 'RGB_TRUE_COLOR'
@@ -1309,13 +1393,32 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 10px monospace';
-      ctx.fillText(`🛰️ SENTINEL-2 / WORLDVIEW-3 HIGH-RES ORTHOPHOTO`, 25, 70);
+      ctx.fillText(
+        viewMode === 'sat_heat'
+          ? `🛰️+🔥 SENTINEL-2 ORTHOPHOTO + RISK HEATMAP`
+          : `🛰️ SENTINEL-2 / WORLDVIEW-3 HIGH-RES ORTHOPHOTO`,
+        25,
+        70
+      );
       ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 9px monospace';
       ctx.fillText(`${beachName} | ${coordStr}`, 25, 84);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '8px monospace';
       ctx.fillText(`BAND: ${bandName} | GSD: 0.3m/px | ALT: 786 KM (LEO)`, 25, 96);
+    } else if (viewMode === 'heat') {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(15, 55, 310, 42);
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(15, 55, 310, 42);
+
+      ctx.fillStyle = '#fb923c';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('🔥 DYNAMIC SAFETY RISK HEATMAP', 25, 70);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '8px monospace';
+      ctx.fillText('🟢 LOW (0-24) | 🟡 MOD (25-49) | 🟠 HIGH (50-74) | 🔴 CRIT (75-100)', 25, 85);
     } else if (viewMode === 'thermal') {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
       ctx.fillRect(15, 55, 260, 36);
@@ -1405,6 +1508,30 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           </button>
 
           <button
+            onClick={() => setViewMode('heat')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'heat'
+                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-orange-400" />
+            <span>🔥 Risk Heatmap</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('sat_heat')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'sat_heat'
+                ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-300" />
+            <span>🛰️+🔥 Sat + Heat</span>
+          </button>
+
+          <button
             onClick={() => setViewMode('thermal')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'thermal'
@@ -1472,7 +1599,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       </div>
 
       {/* Floating Satellite Spectral Band Selector */}
-      {viewMode === 'satellite' && (
+      {(viewMode === 'satellite' || viewMode === 'sat_heat') && (
         <div className="absolute top-14 right-2.5 z-20 flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-xl border border-blue-500/50 shadow-xl backdrop-blur-md text-xs font-mono">
           <span className="text-[10px] text-blue-300 font-bold px-1.5">BAND:</span>
           <button

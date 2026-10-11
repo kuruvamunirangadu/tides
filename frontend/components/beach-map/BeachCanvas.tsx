@@ -2,6 +2,23 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { SimulationState, Visitor } from '@/lib/types';
+import {
+  Globe,
+  Layers,
+  Shield,
+  HelpCircle,
+  X,
+  Waves,
+  Eye,
+  LifeBuoy,
+  Plane,
+  Activity,
+  Crosshair,
+  Flame,
+} from 'lucide-react';
+
+export type CanvasViewMode = 'tactical' | 'satellite' | 'heat' | 'sat_heat';
+export type SatelliteBand = 'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY';
 
 interface BeachCanvasProps {
   state: SimulationState | null;
@@ -13,6 +30,41 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
   const [selectedVis, setSelectedVis] = useState<Visitor | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const wavePhaseRef = useRef<number>(0);
+
+  // View mode & layer visibility toggles
+  const [viewMode, setViewMode] = useState<CanvasViewMode>('tactical');
+  const [satelliteBand, setSatelliteBand] = useState<SatelliteBand>('RGB_TRUE_COLOR');
+  const [showRipStreamlines, setShowRipStreamlines] = useState<boolean>(true);
+  const [showZones, setShowZones] = useState<boolean>(true);
+  const [showAssets, setShowAssets] = useState<boolean>(true);
+  const [showLegend, setShowLegend] = useState<boolean>(false);
+
+  // Keep references for 60 FPS animation loop
+  const viewModeRef = useRef<CanvasViewMode>(viewMode);
+  const satelliteBandRef = useRef<SatelliteBand>(satelliteBand);
+  const showRipStreamlinesRef = useRef<boolean>(showRipStreamlines);
+  const showZonesRef = useRef<boolean>(showZones);
+  const showAssetsRef = useRef<boolean>(showAssets);
+
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
+
+  useEffect(() => {
+    satelliteBandRef.current = satelliteBand;
+  }, [satelliteBand]);
+
+  useEffect(() => {
+    showRipStreamlinesRef.current = showRipStreamlines;
+  }, [showRipStreamlines]);
+
+  useEffect(() => {
+    showZonesRef.current = showZones;
+  }, [showZones]);
+
+  useEffect(() => {
+    showAssetsRef.current = showAssets;
+  }, [showAssets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -28,6 +80,11 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
 
       const width = canvas.width;
       const height = canvas.height;
+      const currentMode = viewModeRef.current;
+      const currentBand = satelliteBandRef.current;
+      const streamlinesOn = showRipStreamlinesRef.current;
+      const zonesOn = showZonesRef.current;
+      const assetsOn = showAssetsRef.current;
 
       // Coordinate scaling
       // Beach model: X from 0 to 1000m, Y from -40m (dry sand) to +160m (deep offshore)
@@ -37,30 +94,192 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
         return height - norm * height;
       };
 
-      // 1. Draw Deep Ocean Background
-      const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
-      oceanGrad.addColorStop(0, '#0a2540');
-      oceanGrad.addColorStop(0.35, '#0e4166');
-      oceanGrad.addColorStop(0.65, '#19769f');
-      oceanGrad.addColorStop(0.82, '#38a3a5');
-      oceanGrad.addColorStop(0.88, '#80ced7');
-      oceanGrad.addColorStop(0.92, '#e9d8a6');
-      oceanGrad.addColorStop(1.0, '#ee9b00');
-      ctx.fillStyle = oceanGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      // 2. Sand Beach Ground
       const tideShift = state ? (state.environment.tide_level_m - 1.0) * 12 : 0;
       const shorelineY = scaleY(0) + tideShift;
 
-      const sandGrad = ctx.createLinearGradient(0, shorelineY, 0, height);
-      sandGrad.addColorStop(0, '#e9d8a6');
-      sandGrad.addColorStop(0.3, '#ee9b00');
-      sandGrad.addColorStop(1, '#ca6702');
-      ctx.fillStyle = sandGrad;
-      ctx.fillRect(0, shorelineY, width, height - shorelineY);
+      // =========================================================================
+      // 1. BASE BACKGROUND: TACTICAL VECTOR VS. SATELLITE OPTICAL RECON
+      // =========================================================================
+      if (currentMode === 'satellite' || currentMode === 'sat_heat') {
+        // --- 1.1 SATELLITE OCEAN WATER BASE ---
+        const satOcean = ctx.createLinearGradient(0, 0, 0, shorelineY);
+        if (currentBand === 'RGB_TRUE_COLOR') {
+          satOcean.addColorStop(0.0, '#082f49'); // Oceanic Bay of Bengal (deep abyss)
+          satOcean.addColorStop(0.3, '#0c4a6e'); // Deep outer cove
+          satOcean.addColorStop(0.55, '#075985'); // Mid-cove continental shelf
+          satOcean.addColorStop(0.78, '#0369a1'); // Nearshore azure
+          satOcean.addColorStop(0.92, '#0284c7'); // Shallow turquoise
+          satOcean.addColorStop(1.0, '#38bdf8'); // Swash turquoise surf
+        } else if (currentBand === 'NDWI_TURBIDITY') {
+          satOcean.addColorStop(0.0, '#020617'); // Dark deep water absorption
+          satOcean.addColorStop(0.35, '#042f2e');
+          satOcean.addColorStop(0.75, '#083344');
+          satOcean.addColorStop(1.0, '#06b6d4'); // Turbid shallow water
+        } else {
+          // BATHYMETRY
+          satOcean.addColorStop(0.0, '#020617'); // >10m deep
+          satOcean.addColorStop(0.3, '#1e1b4b'); // 3.8m deep trench
+          satOcean.addColorStop(0.55, '#2563eb'); // 2.5m shelf
+          satOcean.addColorStop(0.8, '#06b6d4'); // 1.5m shallow
+          satOcean.addColorStop(1.0, '#14b8a6'); // 0.8m sandbar shallows
+        }
+        ctx.fillStyle = satOcean;
+        ctx.fillRect(0, 0, width, shorelineY);
 
-      // Shoreline Wet Sand / Swash Foam Line
+        // --- 1.2 SUN GLITTER & WATER CAUSTICS ---
+        if (currentBand === 'RGB_TRUE_COLOR') {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          for (let i = 0; i < 35; i++) {
+            const cx = (Math.sin(i * 11.7 + wavePhaseRef.current * 0.4) * 0.5 + 0.5) * width;
+            const cy = (Math.cos(i * 8.3) * 0.5 + 0.5) * (shorelineY - 20);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 32, 10, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // --- 1.3 SUBMERGED BASALTIC REEF OUTCROPS (North Headland / Promontory) ---
+        ctx.fillStyle = currentBand === 'NDWI_TURBIDITY' ? 'rgba(34, 211, 238, 0.35)' : 'rgba(28, 25, 23, 0.65)';
+        ctx.beginPath();
+        ctx.ellipse(scaleX(90), scaleY(70), 80, 32, -0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(scaleX(170), scaleY(45), 70, 26, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- 1.4 SUBMERGED RIP CURRENT OUTFLOW TRENCH (Zone B: 300m - 550m) ---
+        const ripTrench = ctx.createLinearGradient(scaleX(350), shorelineY, scaleX(480), scaleY(120));
+        if (currentBand === 'NDWI_TURBIDITY') {
+          ripTrench.addColorStop(0, 'rgba(6, 182, 212, 0.8)');
+          ripTrench.addColorStop(0.5, 'rgba(34, 211, 238, 0.9)');
+          ripTrench.addColorStop(1, 'rgba(244, 63, 94, 0.6)');
+        } else if (currentBand === 'BATHYMETRY') {
+          ripTrench.addColorStop(0, 'rgba(30, 27, 75, 0.9)');
+          ripTrench.addColorStop(0.5, 'rgba(15, 23, 42, 0.98)');
+          ripTrench.addColorStop(1, 'rgba(2, 6, 23, 1)');
+        } else {
+          ripTrench.addColorStop(0, 'rgba(8, 47, 73, 0.7)');
+          ripTrench.addColorStop(0.5, 'rgba(3, 105, 161, 0.5)');
+          ripTrench.addColorStop(1, 'rgba(12, 74, 110, 0.35)');
+        }
+        ctx.fillStyle = ripTrench;
+        ctx.beginPath();
+        ctx.moveTo(scaleX(320), shorelineY);
+        ctx.bezierCurveTo(scaleX(360), scaleY(40), scaleX(400), scaleY(90), scaleX(450), 0);
+        ctx.lineTo(scaleX(540), 0);
+        ctx.bezierCurveTo(scaleX(490), scaleY(90), scaleX(460), scaleY(40), scaleX(440), shorelineY);
+        ctx.closePath();
+        ctx.fill();
+
+        // --- 1.5 GOLDEN BLUE FLAG SAND & WET SWASH SHORE ---
+        const satSand = ctx.createLinearGradient(0, shorelineY, 0, height);
+        satSand.addColorStop(0.0, '#9c6644'); // Wet swash sand
+        satSand.addColorStop(0.12, '#f5d0a9'); // Golden fine sand
+        satSand.addColorStop(0.45, '#e7e5e4'); // Dune berm
+        satSand.addColorStop(0.75, '#78716c'); // Upper bank
+        satSand.addColorStop(1.0, '#57534e'); // Hinterland
+        ctx.fillStyle = satSand;
+        ctx.fillRect(0, shorelineY, width, height - shorelineY);
+
+        // Wet sand reflection sheen
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.25)';
+        ctx.fillRect(0, shorelineY - 10, width, 16);
+
+        // --- 1.6 COASTAL PROMENADE & PALM BERM (Canvas Bottom) ---
+        ctx.fillStyle = '#27272a';
+        ctx.fillRect(0, height - 38, width, 18);
+        ctx.strokeStyle = '#e4e4e7';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(0, height - 29);
+        ctx.lineTo(width, height - 29);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Palm trees along promenade
+        for (let px = 45; px < width; px += 85) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.beginPath();
+          ctx.ellipse(px + 3, height - 24 + 3, 7, 3.5, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#15803d';
+          ctx.beginPath();
+          ctx.arc(px, height - 24, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#22c55e';
+          ctx.beginPath();
+          ctx.arc(px - 1, height - 25, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // --- 1.7 SATELLITE HUD OVERLAY ---
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(10, 10, 310, 26);
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(10, 10, 310, 26);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(`🛰️ SENTINEL-2 / LANDSAT-9 MSI RECON`, 18, 26);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(width - 240, 10, 230, 26);
+        ctx.strokeStyle = '#0ea5e9';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(width - 240, 10, 230, 26);
+
+        ctx.fillStyle = '#bae6fd';
+        ctx.font = '10px monospace';
+        ctx.fillText(`17°46'46.2"N 83°23'18.6"E`, width - 230, 26);
+
+        // True North Compass Reticle
+        const ncx = width - 30;
+        const ncy = 65;
+        ctx.beginPath();
+        ctx.arc(ncx, ncy, 14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(ncx, ncy - 11);
+        ctx.lineTo(ncx + 4, ncy + 3);
+        ctx.lineTo(ncx, ncy);
+        ctx.lineTo(ncx - 4, ncy + 3);
+        ctx.closePath();
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText('N', ncx - 3, ncy - 13);
+      } else {
+        // --- 1.1 TACTICAL VECTOR OCEAN ---
+        const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
+        oceanGrad.addColorStop(0, '#0a2540');
+        oceanGrad.addColorStop(0.35, '#0e4166');
+        oceanGrad.addColorStop(0.65, '#19769f');
+        oceanGrad.addColorStop(0.82, '#38a3a5');
+        oceanGrad.addColorStop(0.88, '#80ced7');
+        oceanGrad.addColorStop(0.92, '#e9d8a6');
+        oceanGrad.addColorStop(1.0, '#ee9b00');
+        ctx.fillStyle = oceanGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // --- 1.2 TACTICAL SAND BEACH ---
+        const sandGrad = ctx.createLinearGradient(0, shorelineY, 0, height);
+        sandGrad.addColorStop(0, '#e9d8a6');
+        sandGrad.addColorStop(0.3, '#ee9b00');
+        sandGrad.addColorStop(1, '#ca6702');
+        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, shorelineY, width, height - shorelineY);
+      }
+
+      // Shoreline Wet Sand / Swash Foam Line (Both modes)
       ctx.beginPath();
       ctx.moveTo(0, shorelineY);
       for (let x = 0; x <= width; x += 10) {
@@ -69,7 +288,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       }
       ctx.lineTo(width, height);
       ctx.lineTo(0, height);
-      ctx.fillStyle = 'rgba(238, 155, 0, 0.4)';
+      ctx.fillStyle = currentMode === 'satellite' ? 'rgba(245, 208, 169, 0.3)' : 'rgba(238, 155, 0, 0.4)';
       ctx.fill();
 
       // Frothy Wave Shorebreak
@@ -79,9 +298,39 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
         const waveOffset = Math.sin(x * 0.02 + wavePhaseRef.current * 1.5) * 6;
         ctx.lineTo(x, shorelineY + waveOffset);
       }
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = currentMode === 'satellite' || currentMode === 'sat_heat' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.75)';
+      ctx.lineWidth = currentMode === 'satellite' || currentMode === 'sat_heat' ? 3.5 : 3;
       ctx.stroke();
+
+      // Dynamic Safety Risk Heatmap Layer (Active in 'heat' and 'sat_heat' modes)
+      if ((currentMode === 'heat' || currentMode === 'sat_heat') && state) {
+        ctx.save();
+        state.beach.zones.forEach((z) => {
+          const zx = scaleX(z.x_min);
+          const zw = scaleX(z.x_max) - zx;
+          const zy = scaleY(z.y_max);
+          const zh = scaleY(z.y_min) - zy;
+          const cx = zx + zw / 2;
+          const cy = zy + zh / 2;
+          const rad = Math.max(zw, zh) * 0.72 + Math.sin(wavePhaseRef.current * 2) * 8;
+
+          const score = z.current_risk_score ?? 15;
+          let colInner = 'rgba(34, 197, 94, 0.4)';
+          if (score >= 75) colInner = 'rgba(239, 68, 68, 0.68)';
+          else if (score >= 50) colInner = 'rgba(249, 115, 22, 0.55)';
+          else if (score >= 25) colInner = 'rgba(234, 179, 8, 0.46)';
+
+          const hGrad = ctx.createRadialGradient(cx, cy, 15, cx, cy, rad);
+          hGrad.addColorStop(0, colInner);
+          hGrad.addColorStop(0.65, colInner.replace(/[\d\.]+\)$/, '0.18)'));
+          hGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = hGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
 
       // 3. Draw Breaking Wave Crests in Ocean
       const waveCount = 5;
@@ -93,13 +342,15 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
           const crest = Math.sin(x * 0.015 + wavePhaseRef.current * (1 + i * 0.2)) * (3 + (state?.environment.wave_height_m || 1.0) * 2);
           ctx.lineTo(x, wy + crest);
         }
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 + (i / waveCount) * 0.25})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = currentMode === 'satellite'
+          ? `rgba(255, 255, 255, ${0.25 + (i / waveCount) * 0.35})`
+          : `rgba(255, 255, 255, ${0.15 + (i / waveCount) * 0.25})`;
+        ctx.lineWidth = currentMode === 'satellite' ? 2.5 : 2;
         ctx.stroke();
       }
 
       // 4. Draw Rip Current Channel Flow Dynamics in Zone B (300m - 550m)
-      if (state && state.environment.rip_current_speed_mps > 0.2) {
+      if (streamlinesOn && state && state.environment.rip_current_speed_mps > 0.2) {
         const ripX1 = scaleX(300);
         const ripX2 = scaleX(550);
         const ripCenterX = scaleX(425);
@@ -141,7 +392,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       }
 
       // 5. Draw Zones & Boundaries
-      if (state && state.beach.zones) {
+      if (zonesOn && state && state.beach.zones) {
         state.beach.zones.forEach((zone) => {
           const zx1 = scaleX(zone.x_min);
           const zx2 = scaleX(zone.x_max);
@@ -254,7 +505,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       }
 
       // 7. Draw Lifeguards & Response Vectors
-      if (state && state.beach.lifeguards) {
+      if (assetsOn && state && state.beach.lifeguards) {
         state.beach.lifeguards.forEach((lg) => {
           const lx = scaleX(lg.current_x);
           const ly = scaleY(lg.current_y);
@@ -288,7 +539,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       }
 
       // 8. Draw Autonomous Drones & Aerial Search Cones
-      if (state && state.beach.drones) {
+      if (assetsOn && state && state.beach.drones) {
         state.beach.drones.forEach((drone) => {
           const dx = scaleX(drone.current_x);
           const dy = scaleY(drone.current_y);
@@ -328,7 +579,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
           // Drone Label & Battery
           ctx.fillStyle = '#e0f2fe';
           ctx.font = 'bold 9px monospace';
-          ctx.fillText(`🛸 ${drone.id} (${drone.battery_pct.toFixed(0)}%)`, dx - 24, dy - 10);
+          ctx.fillText(`🛸 ${drone.id} (${(drone.battery_pct ?? 100).toFixed(0)}%)`, dx - 24, dy - 10);
         });
       }
 
@@ -399,15 +650,15 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       }
 
       // 10. Draw Bottom Beach Coordinate Scale / HUD
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      ctx.fillRect(0, height - 22, width, 22);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(0, height - 20, width, 20);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '10px monospace';
-      ctx.fillText('SHORELINE (0m)', 10, height - 8);
-      ctx.fillText('ZONE A (0-300m)', scaleX(100), height - 8);
-      ctx.fillText('ZONE B: RIP CHANNEL (300-550m)', scaleX(340), height - 8);
-      ctx.fillText('ZONE C (550-800m)', scaleX(610), height - 8);
-      ctx.fillText('ZONE D: RESTRICTED (800-1000m)', scaleX(820), height - 8);
+      ctx.fillText('SHORELINE (0m)', 10, height - 6);
+      ctx.fillText('ZONE A (0-300m)', scaleX(100), height - 6);
+      ctx.fillText('ZONE B: RIP CHANNEL (300-550m)', scaleX(340), height - 6);
+      ctx.fillText('ZONE C (550-800m)', scaleX(610), height - 6);
+      ctx.fillText('ZONE D: RESTRICTED (800-1000m)', scaleX(820), height - 6);
 
       animFrameRef.current = requestAnimationFrame(render);
     };
@@ -443,6 +694,139 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-2xl">
+      {/* Top Floating Control Dock: View Switcher, Spectral Bands, & Layer Toggles */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: View Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 shadow-lg backdrop-blur-md pointer-events-auto text-xs font-mono">
+          <button
+            onClick={() => setViewMode('tactical')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              viewMode === 'tactical'
+                ? 'bg-cyan-500 text-slate-950 shadow-md font-black ring-1 ring-cyan-300'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            <span>🗺️ Tactical Vector</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('satellite')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              viewMode === 'satellite'
+                ? 'bg-blue-600 text-white shadow-md font-black ring-1 ring-blue-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-300" />
+            <span>🛰️ Satellite View</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('heat')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              viewMode === 'heat'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-1 ring-amber-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-orange-400" />
+            <span>🔥 Risk Heatmap</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('sat_heat')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              viewMode === 'sat_heat'
+                ? 'bg-purple-600 text-white shadow-md font-black ring-1 ring-purple-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-300" />
+            <span>🛰️+🔥 Sat + Heat</span>
+          </button>
+        </div>
+
+        {/* Right: Layer Toggles & Map Guide */}
+        <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 shadow-lg backdrop-blur-md pointer-events-auto text-xs font-mono">
+          <button
+            onClick={() => setShowRipStreamlines(!showRipStreamlines)}
+            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              showRipStreamlines ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+            title="Toggle Hydrodynamic Feeder & Rip Streamlines"
+          >
+            ⚡ Rip Flow
+          </button>
+
+          <button
+            onClick={() => setShowZones(!showZones)}
+            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              showZones ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+            title="Toggle Zone Safety Geofences"
+          >
+            🚩 Zones
+          </button>
+
+          <button
+            onClick={() => setShowAssets(!showAssets)}
+            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+              showAssets ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+            title="Toggle Drone & Lifeguard Fleet"
+          >
+            🛸 Assets
+          </button>
+
+          <button
+            onClick={() => setShowLegend(!showLegend)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold transition-all cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{showLegend ? 'Hide' : 'Legend'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Floating Satellite Spectral Band Selector when Satellite View is Active */}
+      {(viewMode === 'satellite' || viewMode === 'sat_heat') && (
+        <div className="absolute top-14 left-2.5 z-20 flex items-center gap-1 bg-slate-900/95 p-1 rounded-xl border border-blue-500/50 shadow-xl backdrop-blur-md text-xs font-mono">
+          <span className="text-[10px] text-blue-300 font-bold px-1.5">SPECTRAL BAND:</span>
+          <button
+            onClick={() => setSatelliteBand('RGB_TRUE_COLOR')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'RGB_TRUE_COLOR'
+                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            🌍 True Color Orthophoto
+          </button>
+          <button
+            onClick={() => setSatelliteBand('NDWI_TURBIDITY')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'NDWI_TURBIDITY'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm font-extrabold ring-1 ring-cyan-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            🌊 NDWI Rip Turbidity
+          </button>
+          <button
+            onClick={() => setSatelliteBand('BATHYMETRY')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              satelliteBand === 'BATHYMETRY'
+                ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            📊 Bathymetric Depths
+          </button>
+        </div>
+      )}
+
+      {/* Canvas */}
       <canvas
         ref={canvasRef}
         width={1000}
@@ -450,8 +834,10 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
         onClick={handleCanvasClick}
         className="w-full h-auto cursor-crosshair block"
       />
+
+      {/* Interactive Telemetry Card for Clicked Swimmer */}
       {selectedVis && (
-        <div className="absolute bottom-10 right-4 bg-slate-900/95 border border-cyan-500/50 backdrop-blur-md rounded-lg p-3 text-xs text-slate-200 shadow-xl max-w-xs animate-in fade-in">
+        <div className="absolute bottom-10 right-4 bg-slate-900/95 border border-cyan-500/50 backdrop-blur-md rounded-lg p-3 text-xs text-slate-200 shadow-xl max-w-xs animate-in fade-in z-20">
           <div className="flex justify-between items-center mb-1.5 border-b border-slate-700 pb-1">
             <span className="font-bold text-cyan-400">Visitor Telemetry: {selectedVis.id}</span>
             <button
@@ -463,11 +849,131 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
           </div>
           <div className="space-y-1 font-mono">
             <div>Zone: <span className="text-white">{selectedVis.current_zone_id}</span></div>
-            <div>Position: <span className="text-white">X:{selectedVis.x.toFixed(1)}m, Y:{selectedVis.y.toFixed(1)}m</span></div>
+            <div>Position: <span className="text-white">X:{selectedVis.x?.toFixed(1) ?? '--'}m, Y:{selectedVis.y?.toFixed(1) ?? '--'}m</span></div>
             <div>Status: <span className="text-white">{selectedVis.swimming_status}</span></div>
             <div>Distress: <span className={selectedVis.distress_state !== 'NONE' ? 'text-red-400 font-bold' : 'text-emerald-400'}>{selectedVis.distress_state}</span></div>
-            <div>Stamina: <span className="text-amber-400">{selectedVis.stamina.toFixed(0)}%</span></div>
+            <div>Stamina: <span className="text-amber-400">{selectedVis.stamina?.toFixed(0) ?? '--'}%</span></div>
             <div>Skill: <span className="text-slate-300">{selectedVis.skill}</span></div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Map Legend Modal */}
+      {showLegend && (
+        <div className="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-lg p-4 flex flex-col justify-between overflow-y-auto text-left animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Digital Beach Simulation Map Legend & Guide
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowLegend(false)}
+              className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs flex-1">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <span className="font-bold text-cyan-300 block text-[11px] uppercase border-b border-slate-800 pb-1">
+                👤 Bather States
+              </span>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-sky-400 inline-block shrink-0" />
+                  <span><strong>UNAWARE</strong> (Recreating)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-amber-400 inline-block shrink-0" />
+                  <span><strong className="text-amber-300">TIRED</strong> (Stamina &lt;40%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-orange-500 inline-block shrink-0" />
+                  <span><strong className="text-orange-400">STRUGGLING</strong> (Current pull)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping inline-block shrink-0" />
+                  <span><strong className="text-rose-400">SOS DROWNING</strong> (Critical)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <span className="font-bold text-yellow-300 block text-[11px] uppercase border-b border-slate-800 pb-1">
+                🛰️ Satellite View Modes
+              </span>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 rounded bg-blue-600 shrink-0" />
+                  <span><strong>True Color</strong> (Photorealistic)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 rounded bg-cyan-400 shrink-0" />
+                  <span><strong>NDWI Turbidity</strong> (Rip Plumes)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 rounded bg-indigo-600 shrink-0" />
+                  <span><strong>Bathymetric Depths</strong> (Trenches)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <span className="font-bold text-rose-300 block text-[11px] uppercase border-b border-slate-800 pb-1">
+                🚨 Emergency Responders
+              </span>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 shrink-0" />
+                  <span><strong>Lifeguard Squad</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Plane className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span><strong>Autonomous Drone (UAV)</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 border border-dashed border-sky-400 shrink-0" />
+                  <span><strong>Search & Rescue Vectors</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <span className="font-bold text-amber-300 block text-[11px] uppercase border-b border-slate-800 pb-1">
+                🚩 Safety Flags & Hazards
+              </span>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-emerald-500 shrink-0" />
+                  <span><strong>Green Flag</strong> (Safe)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-amber-500 shrink-0" />
+                  <span><strong>Yellow Flag</strong> (Caution)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-rose-500 shrink-0" />
+                  <span><strong>Red Flag</strong> (Prohibited)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-sm leading-none shrink-0">⚡</span>
+                  <span><strong>Active Rip Current Flow</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-800 text-[11px] text-slate-400">
+            <span>Click any swimmer dot to inspect individual coordinates, kinematics, and stamina.</span>
+            <button
+              onClick={() => setShowLegend(false)}
+              className="px-3 py-1 bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded-lg font-bold cursor-pointer"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
