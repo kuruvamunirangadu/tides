@@ -152,13 +152,141 @@ function drawPhotorealisticSatelliteImagery(
   isRushikonda: boolean,
   environment: Environment,
   waveOffset: number,
-  band: 'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY'
+  band: 'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY',
+  aerialImage?: HTMLImageElement | null
 ) {
   ctx.save();
 
   if (isRushikonda) {
+    // Check if authentic high-resolution aerial recon photo is loaded
+    if (aerialImage && aerialImage.complete && aerialImage.naturalWidth > 0) {
+      // 1. Authentic Aerial Reconnaissance Photograph (Rushikonda Cove & Hill)
+      // Crop top 90px of overcast sky to center the conical green mountain, curving Beach Road, golden sand, and oceanic breakers
+      const srcY = 90;
+      const srcH = aerialImage.naturalHeight - srcY;
+      ctx.drawImage(
+        aerialImage,
+        0,
+        srcY,
+        aerialImage.naturalWidth,
+        srcH,
+        0,
+        0,
+        width,
+        height
+      );
+
+      // Multispectral Band Processing
+      if (band === 'NDWI_TURBIDITY') {
+        // High-Turbidity / Suspended Particulate Spectral Mask
+        const ndwiGrad = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
+        ndwiGrad.addColorStop(0, 'rgba(6, 182, 212, 0.40)');
+        ndwiGrad.addColorStop(0.4, 'rgba(4, 47, 46, 0.50)');
+        ndwiGrad.addColorStop(1, 'rgba(2, 6, 23, 0.70)');
+        ctx.fillStyle = ndwiGrad;
+        ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
+
+        // Highlight active turbidity plume / rip channel outflow
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(width * 0.45, dynamicShorelineY + 110, 100, 50, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (band === 'BATHYMETRY') {
+        // Satellite-Derived Bathymetry (SDB) Depth Heat Gradient
+        const bathyGrad = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
+        bathyGrad.addColorStop(0, 'rgba(20, 184, 166, 0.28)'); // 0.8m shallow swash
+        bathyGrad.addColorStop(0.22, 'rgba(6, 182, 212, 0.38)'); // 1.5m
+        bathyGrad.addColorStop(0.5, 'rgba(37, 99, 235, 0.48)'); // 2.5m shelf
+        bathyGrad.addColorStop(0.78, 'rgba(30, 27, 75, 0.68)'); // 3.8m trench
+        bathyGrad.addColorStop(1, 'rgba(2, 6, 23, 0.85)'); // >10m deep Bay of Bengal
+        ctx.fillStyle = bathyGrad;
+        ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
+
+        // Isobath Depth Contours
+        const isobaths = [
+          { y: dynamicShorelineY + 35, label: '0.8m ISOBATH' },
+          { y: dynamicShorelineY + 95, label: '1.5m ISOBATH' },
+          { y: dynamicShorelineY + 185, label: '2.5m SHELF' },
+          { y: dynamicShorelineY + 285, label: '3.8m TRENCH' },
+        ];
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([6, 6]);
+        isobaths.forEach((iso) => {
+          if (iso.y < height) {
+            ctx.beginPath();
+            ctx.moveTo(0, iso.y);
+            for (let x = 0; x <= width; x += 30) {
+              const cur = Math.sin(x * 0.015) * 5;
+              ctx.lineTo(x, iso.y + cur);
+            }
+            ctx.stroke();
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 8px monospace';
+            ctx.fillText(iso.label, width - 95, iso.y - 4);
+          }
+        });
+        ctx.setLineDash([]);
+      }
+
+      // Animated Surf Foam Crests (reflecting actual environmental waveHeight)
+      for (let wx = 120; wx < width; wx += 40) {
+        const wavePhase = Math.sin(wx * 0.025 + waveOffset * 1.8) * (3 + environment.waveHeight * 2.2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(wx, dynamicShorelineY + 15 + wavePhase);
+        ctx.lineTo(wx + 26, dynamicShorelineY + 15 + wavePhase);
+        ctx.stroke();
+      }
+
+      // Live Telemetry HUD Overlay
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(10, 10, 360, 26);
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(10, 10, 360, 26);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`🛰️ RUSHIKONDA BLUE FLAG BEACH — AERIAL RECON`, 18, 26);
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(width - 240, 10, 230, 26);
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(width - 240, 10, 230, 26);
+      ctx.fillStyle = '#bae6fd';
+      ctx.font = '10px monospace';
+      ctx.fillText(`17°46'46.2"N 83°23'18.6"E | WGS84`, width - 232, 26);
+
+      // True North Compass Reticle
+      const ncx = width - 30;
+      const ncy = 65;
+      ctx.beginPath();
+      ctx.arc(ncx, ncy, 14, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ncx, ncy - 10);
+      ctx.lineTo(ncx + 4, ncy + 3);
+      ctx.lineTo(ncx, ncy);
+      ctx.lineTo(ncx - 4, ncy + 3);
+      ctx.closePath();
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText('N', ncx - 3, ncy - 13);
+
+      ctx.restore();
+      return;
+    }
+
     // =========================================================================
-    // 1. RUSHIKONDA BLUE FLAG BEACH (VIZAG) - CRESCENT COVE & ROCKY HEADLAND
+    // 1. RUSHIKONDA BLUE FLAG BEACH (VIZAG) - PROCEDURAL FALLBACK
     // =========================================================================
 
     // 1.1 Ocean Base (Crescent Cove & Continental Shelf)
@@ -634,6 +762,8 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const waveOffsetRef = useRef<number>(0);
   const droneRotorRef = useRef<number>(0);
+  const rushikondaImgRef = useRef<HTMLImageElement | null>(null);
+  const [imgLoaded, setImgLoaded] = useState<boolean>(false);
 
   const [viewMode, setViewMode] = useState<CanvasViewMode>('tactical');
   const [satelliteBand, setSatelliteBand] = useState<'RGB_TRUE_COLOR' | 'NDWI_TURBIDITY' | 'BATHYMETRY'>('RGB_TRUE_COLOR');
@@ -641,6 +771,16 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
   const [showCCTV, setShowCCTV] = useState<boolean>(showCCTVCones);
   const [showGeofences, setShowGeofences] = useState<boolean>(true);
   const [showLegend, setShowLegend] = useState<boolean>(false);
+
+  // Preload authentic high-resolution Rushikonda aerial imagery
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/rushikonda_aerial.png';
+    img.onload = () => {
+      rushikondaImgRef.current = img;
+      setImgLoaded(true);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -676,7 +816,8 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         isRushikonda,
         environment,
         waveOffsetRef.current,
-        satelliteBand
+        satelliteBand,
+        rushikondaImgRef.current
       );
     } else if (viewMode === 'thermal') {
       // THERMAL INFRARED (FLIR / FALSE-COLOR IRONBOW SPECTRUM)
@@ -1450,6 +1591,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     showStreamlines,
     showCCTV,
     showGeofences,
+    imgLoaded,
   ]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

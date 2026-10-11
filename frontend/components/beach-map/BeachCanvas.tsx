@@ -30,6 +30,16 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
   const [selectedVis, setSelectedVis] = useState<Visitor | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const wavePhaseRef = useRef<number>(0);
+  const rushikondaImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Preload authentic Rushikonda aerial imagery
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/rushikonda_aerial.png';
+    img.onload = () => {
+      rushikondaImgRef.current = img;
+    };
+  }, []);
 
   // View mode & layer visibility toggles
   const [viewMode, setViewMode] = useState<CanvasViewMode>('tactical');
@@ -101,7 +111,102 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
       // 1. BASE BACKGROUND: TACTICAL VECTOR VS. SATELLITE OPTICAL RECON
       // =========================================================================
       if (currentMode === 'satellite' || currentMode === 'sat_heat') {
-        // --- 1.1 SATELLITE OCEAN WATER BASE ---
+        const aerialImg = rushikondaImgRef.current;
+        if (aerialImg && aerialImg.complete && aerialImg.naturalWidth > 0) {
+          ctx.save();
+          const srcY = 90;
+          const srcH = aerialImg.naturalHeight - srcY;
+          ctx.drawImage(
+            aerialImg,
+            0,
+            srcY,
+            aerialImg.naturalWidth,
+            srcH,
+            0,
+            0,
+            width,
+            height
+          );
+
+          // Multispectral Band Overlays
+          if (currentBand === 'NDWI_TURBIDITY') {
+            const ndwiGrad = ctx.createLinearGradient(0, shorelineY, 0, 0);
+            ndwiGrad.addColorStop(0, 'rgba(6, 182, 212, 0.40)');
+            ndwiGrad.addColorStop(0.4, 'rgba(4, 47, 46, 0.50)');
+            ndwiGrad.addColorStop(1, 'rgba(2, 6, 23, 0.70)');
+            ctx.fillStyle = ndwiGrad;
+            ctx.fillRect(0, 0, width, shorelineY);
+
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(scaleX(420), scaleY(70), 85, 45, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (currentBand === 'BATHYMETRY') {
+            const bathyGrad = ctx.createLinearGradient(0, shorelineY, 0, 0);
+            bathyGrad.addColorStop(0, 'rgba(20, 184, 166, 0.28)');
+            bathyGrad.addColorStop(0.25, 'rgba(6, 182, 212, 0.38)');
+            bathyGrad.addColorStop(0.55, 'rgba(37, 99, 235, 0.48)');
+            bathyGrad.addColorStop(0.85, 'rgba(30, 27, 75, 0.68)');
+            bathyGrad.addColorStop(1, 'rgba(2, 6, 23, 0.85)');
+            ctx.fillStyle = bathyGrad;
+            ctx.fillRect(0, 0, width, shorelineY);
+          }
+
+          // Animated Surf Wave Crests
+          for (let wx = 120; wx < width; wx += 40) {
+            const wavePhase = Math.sin(wx * 0.025 + wavePhaseRef.current * 1.8) * (3 + (state?.environment.wave_height_m || 1.0) * 2.2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(wx, shorelineY - 15 - wavePhase);
+            ctx.lineTo(wx + 26, shorelineY - 15 - wavePhase);
+            ctx.stroke();
+          }
+
+          // Satellite HUD Overlay
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.fillRect(10, 10, 360, 26);
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(10, 10, 360, 26);
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillText(`🛰️ RUSHIKONDA BLUE FLAG BEACH — AERIAL RECON`, 18, 26);
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.fillRect(width - 240, 10, 230, 26);
+          ctx.strokeStyle = '#0ea5e9';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(width - 240, 10, 230, 26);
+          ctx.fillStyle = '#bae6fd';
+          ctx.font = '10px monospace';
+          ctx.fillText(`17°46'46.2"N 83°23'18.6"E | WGS84`, width - 232, 26);
+
+          // True North Compass Reticle
+          const ncx = width - 30;
+          const ncy = 65;
+          ctx.beginPath();
+          ctx.arc(ncx, ncy, 14, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.fill();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(ncx, ncy - 11);
+          ctx.lineTo(ncx + 4, ncy + 3);
+          ctx.lineTo(ncx, ncy);
+          ctx.lineTo(ncx - 4, ncy + 3);
+          ctx.closePath();
+          ctx.fillStyle = '#ef4444';
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText('N', ncx - 3, ncy - 13);
+
+          ctx.restore();
+        } else {
+        // --- 1.1 SATELLITE OCEAN WATER BASE (FALLBACK) ---
         const satOcean = ctx.createLinearGradient(0, 0, 0, shorelineY);
         if (currentBand === 'RGB_TRUE_COLOR') {
           satOcean.addColorStop(0.0, '#082f49'); // Oceanic Bay of Bengal (deep abyss)
@@ -257,8 +362,9 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 9px monospace';
         ctx.fillText('N', ncx - 3, ncy - 13);
-      } else {
-        // --- 1.1 TACTICAL VECTOR OCEAN ---
+      }
+    } else {
+      // --- 1.1 TACTICAL VECTOR OCEAN ---
         const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
         oceanGrad.addColorStop(0, '#0a2540');
         oceanGrad.addColorStop(0.35, '#0e4166');
