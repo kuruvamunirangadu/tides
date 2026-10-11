@@ -32,6 +32,7 @@ export const GISMap: React.FC<GISMapProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [zoom, setZoom] = useState<number>(1.0);
+  const [mapMode, setMapMode] = useState<'vector' | 'satellite'>('vector');
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -65,47 +66,122 @@ export const GISMap: React.FC<GISMapProps> = ({
       const width = canvas.width;
       const height = canvas.height;
 
-      // 1. Layer 1 — Base Map (Dark topographic ocean & coast)
-      ctx.fillStyle = '#082f49'; // Deep coastal water
-      ctx.fillRect(0, 0, width, height);
-
-      // Draw Bathymetric / Depth grid lines
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < width; x += 50 * zoom) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += 50 * zoom) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
-      // Draw Land / Sand Area Polygon
+      // Draw Land / Sand Area Polygon boundary pixels first
       const boundaryPixels = beach.boundary.coordinates[0].map((coord) =>
         projectGeoToPixel({ longitude: coord[0], latitude: coord[1] }, width, height)
       );
 
-      if (boundaryPixels.length > 0) {
-        // Sand Area gradient
-        const sandGrad = ctx.createLinearGradient(0, 0, 0, height);
-        sandGrad.addColorStop(0, '#78350f'); // Inland
-        sandGrad.addColorStop(0.35, '#ca8a04'); // Dry sand
-        sandGrad.addColorStop(0.55, '#eab308'); // Wet sand
-        sandGrad.addColorStop(1, '#0369a1'); // Surf wash
+      // 1. Layer 1 — Base Map (Dark topographic ocean vs Photorealistic Satellite Orthophoto)
+      if (mapMode === 'satellite') {
+        // High-Resolution Satellite Orthophoto & Bathymetry
+        const satOcean = ctx.createLinearGradient(0, height * 0.25, 0, height);
+        satOcean.addColorStop(0, '#0284c7'); // Shallow shore turquoise
+        satOcean.addColorStop(0.2, '#0369a1'); // Nearshore shelf
+        satOcean.addColorStop(0.5, '#075985'); // Mid-depth coastal trench
+        satOcean.addColorStop(0.85, '#0c4a6e'); // Deep bay blue
+        satOcean.addColorStop(1, '#082f49'); // Oceanic abyss
+        ctx.fillStyle = satOcean;
+        ctx.fillRect(0, 0, width, height);
 
-        ctx.fillStyle = sandGrad;
+        // Submarine sandbar & reef relief texture
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
         ctx.beginPath();
-        ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
-        for (let i = 1; i < boundaryPixels.length; i++) {
-          ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
-        }
-        ctx.closePath();
+        ctx.ellipse(width * 0.35, height * 0.65, width * 0.25, height * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(width * 0.7, height * 0.72, width * 0.22, height * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // High-precision WGS84 Satellite Geo-Grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < width; x += 60 * zoom) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < height; y += 60 * zoom) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        // Draw Photorealistic Satellite Sand / Land Boundary Polygon
+        if (boundaryPixels.length > 0) {
+          const satLandGrad = ctx.createLinearGradient(0, 0, 0, height);
+          satLandGrad.addColorStop(0, '#44403c'); // Coastal highway / promenade
+          satLandGrad.addColorStop(0.2, '#78716c'); // Promenade stone
+          satLandGrad.addColorStop(0.45, '#d6d3d1'); // Dry dune zone
+          satLandGrad.addColorStop(0.75, '#f5d0a9'); // Golden sand
+          satLandGrad.addColorStop(1, '#d4a373'); // Wet tidal sand
+          ctx.fillStyle = satLandGrad;
+          ctx.beginPath();
+          ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
+          for (let i = 1; i < boundaryPixels.length; i++) {
+            ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
+          }
+          ctx.closePath();
+          ctx.fill();
+
+          // Coastal greenery buffer on land
+          ctx.fillStyle = 'rgba(22, 101, 52, 0.4)';
+          ctx.fillRect(0, 0, width, 30);
+        }
+
+        // Satellite Telemetry HUD Stamp
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.fillRect(width - 330, 60, 315, 42);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(width - 330, 60, 315, 42);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText('🛰️ SATELLITE EO/IR ORTHOPHOTO (WGS84)', width - 320, 76);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '8px monospace';
+        ctx.fillText(`EPSG:4326 | GSD: 0.3m/px | ALT: 1,200m | EO-OPTICAL`, width - 320, 92);
+        ctx.restore();
+      } else {
+        // Standard Vector Cartography Base
+        ctx.fillStyle = '#082f49'; // Deep coastal water
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw Bathymetric / Depth grid lines
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < width; x += 50 * zoom) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < height; y += 50 * zoom) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        // Draw Land / Sand Area Polygon
+        if (boundaryPixels.length > 0) {
+          const sandGrad = ctx.createLinearGradient(0, 0, 0, height);
+          sandGrad.addColorStop(0, '#78350f'); // Inland
+          sandGrad.addColorStop(0.35, '#ca8a04'); // Dry sand
+          sandGrad.addColorStop(0.55, '#eab308'); // Wet sand
+          sandGrad.addColorStop(1, '#0369a1'); // Surf wash
+          ctx.fillStyle = sandGrad;
+          ctx.beginPath();
+          ctx.moveTo(boundaryPixels[0].x, boundaryPixels[0].y);
+          for (let i = 1; i < boundaryPixels.length; i++) {
+            ctx.lineTo(boundaryPixels[i].x, boundaryPixels[i].y);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
       }
 
       // 2. Layer 2 — Beach Boundary
@@ -478,7 +554,7 @@ export const GISMap: React.FC<GISMapProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [beach, layerManager, geofences, visitors, hazards, riskOverview, predictionState, zoom, panOffset, mouseGeoCoord]);
+  }, [beach, layerManager, geofences, visitors, hazards, riskOverview, predictionState, zoom, panOffset, mouseGeoCoord, mapMode]);
 
   // Mouse pan/zoom handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -552,6 +628,30 @@ export const GISMap: React.FC<GISMapProps> = ({
           title="Reset View"
         >
           ⊙
+        </button>
+      </div>
+
+      {/* Floating Map Mode Switcher (Vector vs Satellite) */}
+      <div className="absolute top-4 right-4 flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 p-1 rounded-xl shadow-lg backdrop-blur-md">
+        <button
+          onClick={() => setMapMode('vector')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            mapMode === 'vector'
+              ? 'bg-cyan-500 text-slate-950 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+          }`}
+        >
+          <span>🗺️ Vector Map</span>
+        </button>
+        <button
+          onClick={() => setMapMode('satellite')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            mapMode === 'satellite'
+              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+          }`}
+        >
+          <span>🛰️ Satellite Imagery</span>
         </button>
       </div>
 

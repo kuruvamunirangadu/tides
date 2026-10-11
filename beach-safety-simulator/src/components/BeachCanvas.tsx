@@ -967,18 +967,18 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       : '17°46\'46"N  83°23\'18"E | RUSHIKONDA BLUE FLAG';
 
     if (viewMode === 'satellite') {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(15, 55, 260, 36);
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(15, 55, 300, 36);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(15, 55, 260, 36);
+      ctx.strokeRect(15, 55, 300, 36);
 
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 9px monospace';
-      ctx.fillText('🛰️ SATELLITE OPTICAL RECON [EO/IR]', 25, 68);
+      ctx.fillText('🛰️ SATELLITE OPTICAL RECON [EO/IR] (WGS84)', 25, 68);
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '8px monospace';
-      ctx.fillText(`${coordStr} | ALT: 850m`, 25, 82);
+      ctx.fillText(`${coordStr} | ALT: 850m | GSD: 0.25m`, 25, 82);
     } else if (viewMode === 'thermal') {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
       ctx.fillRect(15, 55, 260, 36);
@@ -1058,12 +1058,12 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
             onClick={() => setViewMode('satellite')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'satellite'
-                ? 'bg-blue-500 text-white shadow-sm'
+                ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400 font-extrabold'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
             <Globe className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Satellite Recon</span>
+            <span>🛰️ Satellite Recon</span>
           </button>
 
           <button
