@@ -74,7 +74,17 @@ export const SoundControlHUD: React.FC = () => {
             <span className="hidden sm:inline font-bold">Whistle</span>
           </button>
 
-          {/* 4. Quick Siren SFX Button */}
+          {/* 4. Quick Seagull Beach Bird Sound Button */}
+          <button
+            onClick={() => soundEngine.playSeagullCall()}
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800 hover:bg-sky-950/40 text-sky-300 border border-slate-700 hover:border-sky-500/50 transition-all cursor-pointer active:scale-95"
+            title="Play Coastal Seabird / Seagull Cry"
+          >
+            <span>🐦</span>
+            <span className="hidden md:inline font-bold">Seagulls</span>
+          </button>
+
+          {/* 5. Quick Siren SFX Button */}
           <button
             onClick={handlePlaySiren}
             className="flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/40 text-rose-300 border border-slate-700 hover:border-rose-500/50 transition-all cursor-pointer active:scale-95"
@@ -127,3 +137,4 @@ export const SoundControlHUD: React.FC = () => {
     </div>
   );
 };
+

@@ -874,6 +874,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
   const [showCCTV, setShowCCTV] = useState<boolean>(showCCTVCones);
   const [showGeofences, setShowGeofences] = useState<boolean>(true);
   const [showLegend, setShowLegend] = useState<boolean>(false);
+  const [clarityMode, setClarityMode] = useState<boolean>(true);
 
   // Preload authentic high-resolution Rushikonda aerial imagery
   useEffect(() => {
@@ -907,6 +908,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     showCCTV,
     showGeofences,
     showLegend,
+    clarityMode,
     imgLoaded,
   });
 
@@ -932,6 +934,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       showCCTV,
       showGeofences,
       showLegend,
+      clarityMode,
       imgLoaded,
     };
     soundEngine.updateEnvironment(
@@ -960,6 +963,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     showCCTV,
     showGeofences,
     showLegend,
+    clarityMode,
     imgLoaded,
   ]);
 
@@ -1018,6 +1022,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         showStreamlines,
         showCCTV,
         showGeofences,
+        clarityMode,
       } = stateRef.current;
 
       waveOffsetRef.current += 0.022 * (1 + (environment.waveHeight || 1.2) * 0.4);
@@ -1278,6 +1283,29 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         }
         ctx.restore();
       }
+
+      // 4. Dancing Sunlight Caustics in Shallow Cove Water
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let c = 0; c < 22; c++) {
+        const cx = (c * 47 + wavePhase * 14) % width;
+        const cy = getSatShorelineY(cx, width, height, environment.tideLevel) + 12 + Math.sin(c * 2.3 + wavePhase) * 16;
+        if (cy < height - 15) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, 14, 5, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 5. Atmospheric Coastal Sea Spray Mist
+      const mistShift = (wavePhase * 12) % 40;
+      const mistGrad = ctx.createLinearGradient(0, height * 0.65, 0, height * 0.78);
+      mistGrad.addColorStop(0, 'rgba(255, 255, 255, 0.0)');
+      mistGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.04 + Math.min(0.08, (environment.windSpeed || 15) * 0.003)})`);
+      mistGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+      ctx.fillStyle = mistGrad;
+      ctx.fillRect(0, height * 0.65 + mistShift * 0.2, width, 55);
+      ctx.restore();
     } else {
       // Wet sand swash zone
       ctx.fillStyle = isNightMode ? 'rgba(51, 65, 85, 0.4)' : 'rgba(217, 119, 6, 0.25)';
@@ -1481,6 +1509,30 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           ctx.lineTo(laneX + 4, arrowY + 15);
           ctx.fillStyle = '#ef4444';
           ctx.fill();
+        }
+      }
+
+      // Animated Rip Current Floating Foam Particles (visible undertow flow)
+      const numTracers = 36;
+      for (let p = 0; p < numTracers; p++) {
+        const tracerPhase = ((waveOffsetRef.current * 32 + p * 19) % Math.max(100, height - ripStartY));
+        const progressFrac = tracerPhase / Math.max(100, height - ripStartY);
+        const lateralSpread = (Math.sin(p * 2.7) * (ripWidth * 0.35)) * (0.4 + progressFrac * 1.2);
+        const tracerX = ripChannelX + lateralSpread;
+        const tracerY = ripStartY + tracerPhase;
+
+        if (tracerY < height - 10) {
+          ctx.beginPath();
+          ctx.arc(tracerX, tracerY, 1.2 + (p % 3) * 0.8, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.85 - progressFrac * 0.5})`;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(tracerX, tracerY);
+          ctx.lineTo(tracerX - lateralSpread * 0.1, tracerY - 6);
+          ctx.strokeStyle = `rgba(6, 182, 212, ${0.5 - progressFrac * 0.3})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
         }
       }
 
@@ -1798,6 +1850,49 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         }
       } else {
         // TACTICAL & SATELLITE STANDARD RENDERING
+        const shoreBoundary = isSatelliteMode
+          ? getSatShorelineY(pos.x, width, height, environment.tideLevel)
+          : dynamicShorelineY;
+        const isInWater = pos.y >= shoreBoundary;
+
+        if (isInWater) {
+          // 1. Water Wake Ripple around Swimmer
+          const wakeRad = 7 + (pulsePhase % 5);
+          ctx.beginPath();
+          ctx.ellipse(pos.x, pos.y + 1, wakeRad, wakeRad * 0.42, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+          ctx.lineWidth = 1.0;
+          ctx.stroke();
+
+          // 2. Active Distress Water Splashes (flailing arms & foamy water turbulence)
+          if (isDistressed) {
+            // Concentric shockwave SOS beacon ring expanding outward in water
+            const sosRadius = 10 + ((Date.now() / 40) % 36);
+            ctx.beginPath();
+            ctx.ellipse(pos.x, pos.y + 2, sosRadius, sosRadius * 0.48, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 0.85 - sosRadius / 45)})`;
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            // Water spray droplets shooting outward
+            for (let sp = 0; sp < 6; sp++) {
+              const spAngle = (sp * Math.PI) / 3 + (Date.now() / 140);
+              const spDist = 6 + Math.sin(sp * 1.5 + Date.now() / 90) * 5;
+              const spX = pos.x + Math.cos(spAngle) * spDist;
+              const spY = pos.y + Math.sin(spAngle) * (spDist * 0.6);
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+              ctx.beginPath();
+              ctx.arc(spX, spY, 1.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        } else {
+          // 3. Grounded Drop-Shadow on Golden Beach Sand
+          ctx.beginPath();
+          ctx.ellipse(pos.x + 1.2, pos.y + 3.5, 4.5, 2.0, 0.15, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+          ctx.fill();
+        }
 
         // 1. Sensory Perception Auras
         if (awareness === 'SUSPICIOUS') {
@@ -1899,6 +1994,23 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           ctx.font = 'bold 6px monospace';
           ctx.fillText(className, bx - 2, by - 3);
           ctx.restore();
+        }
+
+        // Clarity Focus Highlight Rings (when Clarity Mode is active)
+        if (clarityMode) {
+          if (v.type === 'CHILD') {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          } else if (isInWater) {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
         }
 
         const radius = v.type === 'CHILD' ? 3.5 : 5;
@@ -2133,6 +2245,17 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
             title="Toggle Zone Safety Geofences"
           >
             🚩 Zones
+          </button>
+
+          <button
+            onClick={() => setClarityMode(!clarityMode)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer border ${
+              clarityMode ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm' : 'text-slate-400 hover:bg-slate-800 border-transparent'
+            }`}
+            title="Toggle High-Clarity Visual Focus (Swimmer Halos, Splashes & Rip Particles)"
+          >
+            <Eye className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Clarity {clarityMode ? 'ON' : 'OFF'}</span>
           </button>
 
           <button

@@ -198,6 +198,7 @@ class BeachSoundEngineService {
   }
 
   public stopOceanAmbience() {
+    this.stopSeagullLoop();
     if (this.waveIntervalTimer) {
       window.clearInterval(this.waveIntervalTimer);
       this.waveIntervalTimer = null;
@@ -217,10 +218,164 @@ class BeachSoundEngineService {
   /**
    * Rhythmic swell modulation: swells up, crashes foam, and draws back
    */
+  private prevSurge: number = 0;
+  private seagullTimer: number | null = null;
+
+  /**
+   * Sub-bass resonant breaker impact thump when wave crest dumps on sand
+   */
+  public playSubBassBreakerThump() {
+    if (!this.ctx || !this.oceanGain || this.isMuted || !this.ambienceEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(65, now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.55);
+
+      gain.gain.setValueAtTime(0.22 * Math.min(1.5, this.currentWaveHeight), now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.oceanGain);
+
+      osc.start(now);
+      osc.stop(now + 0.62);
+    } catch {
+      // Audio node cleanup
+    }
+  }
+
+  /**
+   * Procedural Coastal Seagull Cry (authentic beach atmosphere)
+   */
+  public playSeagullCall() {
+    if (!this.ctx || !this.oceanGain || this.isMuted || !this.ambienceEnabled) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2200, now);
+      filter.Q.setValueAtTime(4.0, now);
+
+      // Natural seagull pitch contour: rapid sweep up, sliding drop
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(2600, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(1600, now + 0.45);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.oceanGain);
+
+      osc.start(now);
+      osc.stop(now + 0.52);
+
+      // Second shorter echo cry
+      setTimeout(() => {
+        if (!this.ctx || !this.oceanGain || this.isMuted) return;
+        const t2 = this.ctx.currentTime;
+        const o2 = this.ctx.createOscillator();
+        const g2 = this.ctx.createGain();
+        const f2 = this.ctx.createBiquadFilter();
+        o2.type = 'sawtooth';
+        f2.type = 'bandpass';
+        f2.frequency.setValueAtTime(2350, t2);
+        f2.Q.setValueAtTime(4.0, t2);
+
+        o2.frequency.setValueAtTime(1800, t2);
+        o2.frequency.exponentialRampToValueAtTime(2750, t2 + 0.1);
+        o2.frequency.exponentialRampToValueAtTime(1700, t2 + 0.38);
+
+        g2.gain.setValueAtTime(0, t2);
+        g2.gain.linearRampToValueAtTime(0.06, t2 + 0.06);
+        g2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.4);
+
+        o2.connect(f2);
+        f2.connect(g2);
+        g2.connect(this.oceanGain);
+
+        o2.start(t2);
+        o2.stop(t2 + 0.42);
+      }, 260);
+    } catch {
+      // Audio node cleanup
+    }
+  }
+
+  /**
+   * Water Splash sound effect for swimming and struggling visitors
+   */
+  public playWaterSplash() {
+    if (!this.ctx || !this.oceanGain || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const noise = this.ctx.createBufferSource();
+      const bSize = this.ctx.sampleRate * 0.35;
+      const buf = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bSize * 0.25));
+      }
+      noise.buffer = buf;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(800, now);
+      filter.frequency.exponentialRampToValueAtTime(350, now + 0.25);
+      filter.Q.setValueAtTime(2.0, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.oceanGain);
+
+      noise.start(now);
+      noise.stop(now + 0.32);
+    } catch {
+      // Audio node cleanup
+    }
+  }
+
+  private startSeagullLoop() {
+    if (this.seagullTimer) window.clearInterval(this.seagullTimer);
+    // Schedule natural occasional seagull calls every 14 to 24 seconds
+    const scheduleNext = () => {
+      const delayMs = 14000 + Math.random() * 10000;
+      this.seagullTimer = window.setTimeout(() => {
+        if (this.ambienceEnabled && !this.isMuted) {
+          this.playSeagullCall();
+        }
+        scheduleNext();
+      }, delayMs);
+    };
+    scheduleNext();
+  }
+
+  private stopSeagullLoop() {
+    if (this.seagullTimer) {
+      window.clearTimeout(this.seagullTimer);
+      this.seagullTimer = null;
+    }
+  }
+
   private startWaveCycleLoop() {
     if (this.waveIntervalTimer) {
       window.clearInterval(this.waveIntervalTimer);
     }
+    this.startSeagullLoop();
 
     const intervalMs = 120; // 8 updates per second for smooth analog curve
     this.waveIntervalTimer = window.setInterval(() => {
@@ -234,6 +389,12 @@ class BeachSoundEngineService {
       const norm = Math.sin(this.wavePhase);
       const surge = Math.pow(Math.max(0, norm), 1.6); // Sharp breaker crest
       const wash = Math.max(0, -norm) * 0.35; // Gentle backwash
+
+      // Detect moment wave crest dumps to fire sub-bass breaker thump
+      if (surge > 0.82 && this.prevSurge <= 0.82) {
+        this.playSubBassBreakerThump();
+      }
+      this.prevSurge = surge;
 
       const baseFreq = 220 + this.currentWaveHeight * 80;
       const targetFreq = baseFreq + surge * (700 + this.currentWaveHeight * 300) + wash * 120;
@@ -446,3 +607,13 @@ class BeachSoundEngineService {
 }
 
 export const soundEngine = new BeachSoundEngineService();
+
+// Auto-unlock Web Audio on user's first interaction anywhere on page
+if (typeof window !== 'undefined') {
+  const autoUnlock = () => {
+    soundEngine.initAudio();
+  };
+  window.addEventListener('click', autoUnlock, { once: true });
+  window.addEventListener('keydown', autoUnlock, { once: true });
+}
+
