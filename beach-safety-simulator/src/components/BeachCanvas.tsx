@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Beach } from '../models/Beach';
+import { Zone } from '../models/Zone';
 import { Environment } from '../models/Environment';
 import { Visitor, VisionTrackOverlay } from '../models/Visitor';
 import { EscapePath } from '../simulation/VisitorEngine';
@@ -31,6 +32,9 @@ import {
   Sliders,
   Layers,
 } from 'lucide-react';
+
+import { SoundControlHUD } from './SoundControlHUD';
+import { soundEngine } from '../audio/BeachSoundEngine';
 
 export type CanvasViewMode = 'tactical' | 'satellite' | 'heat' | 'sat_heat' | 'thermal' | 'hydrodynamic';
 
@@ -144,6 +148,105 @@ function drawEscapeVectors(
   ctx.restore();
 }
 
+/**
+ * Geometric projection helpers for Rushikonda Beach Aerial Photograph
+ * Aligns simulation coordinates (visitors, waves, geofences, assets)
+ * directly with the real physical features of the aerial photo.
+ */
+export function getSatRoadY(x: number, width: number, height: number): number {
+  const normX = Math.max(0, Math.min(1, x / width));
+  // Marine Drive & promenade corridor curves along base of conical hill:
+  // Slopes down from ~0.65 on the left (base of forested hillside) to ~0.44 on the right
+  return height * (0.65 - 0.21 * normX + 0.03 * Math.sin(normX * Math.PI));
+}
+
+export function getSatShorelineY(
+  x: number,
+  width: number,
+  height: number,
+  tideLevel: number = 1.2
+): number {
+  const normX = Math.max(0, Math.min(1, x / width));
+  const tideShift = (tideLevel - 1.2) * 10;
+  // Natural crescent coastline curves from basalt rocks on left (~0.76) down across the sandy cove to ~0.58 on right
+  return height * (0.76 - 0.18 * normX + 0.03 * Math.sin(normX * Math.PI)) - tideShift;
+}
+
+export function projectToSatellite(
+  pos: { x: number; y: number },
+  beachWidth: number,
+  beachHeight: number,
+  tacticalShoreY: number,
+  width: number,
+  height: number,
+  tideLevel: number = 1.2
+): { x: number; y: number } {
+  const normX = Math.max(0, Math.min(1, pos.x / beachWidth));
+  const satX = normX * width;
+
+  const satRoadY = getSatRoadY(satX, width, height);
+  const satShoreY = getSatShorelineY(satX, width, height, tideLevel);
+
+  if (pos.y < 45) {
+    // 1. Promenade & Marine Drive Corridor (pedestrians, tourists, vehicles)
+    const frac = Math.max(0, Math.min(1, pos.y / 45));
+    const satY = satRoadY - 10 + frac * 15;
+    return { x: satX, y: satY };
+  } else if (pos.y < tacticalShoreY) {
+    // 2. Golden Crescent Sand Swash (sunbathers & sand beachgoers)
+    const frac = Math.max(0, Math.min(1, (pos.y - 45) / Math.max(1, tacticalShoreY - 45)));
+    const sandTop = satRoadY + 6;
+    const sandBottom = satShoreY - 8;
+    const satY = sandTop + frac * Math.max(14, sandBottom - sandTop);
+    return { x: satX, y: satY };
+  } else {
+    // 3. Bay of Bengal Oceanic Water (swimmers, surfers, breakers)
+    const frac = Math.max(0, Math.min(1, (pos.y - tacticalShoreY) / Math.max(1, beachHeight - tacticalShoreY)));
+    const waterTop = satShoreY + 8;
+    const waterBottom = height - 20;
+    const satY = waterTop + frac * Math.max(25, waterBottom - waterTop);
+    return { x: satX, y: satY };
+  }
+}
+
+export function getSatZoneRect(
+  zone: Zone,
+  width: number,
+  height: number,
+  tideLevel: number = 1.2
+): { x: number; y: number; width: number; height: number } {
+  if (zone.type === 'RESTRICTED') {
+    // Rocky Basalt Promontory & Reef Outcrop on the far left of Rushikonda
+    const zx = 8;
+    const zw = width * 0.28;
+    const zy = getSatShorelineY(zx + zw / 2, width, height, tideLevel) - 8;
+    const zh = height - zy - 10;
+    return { x: zx, y: zy, width: zw, height: zh };
+  } else if (zone.name.includes('Central') || zone.id.includes('CENTRAL')) {
+    // Central Sandy Swimming Bay & Surf Swash
+    const zx = width * 0.31;
+    const zw = width * 0.34;
+    const zy = getSatShorelineY(zx + zw / 2, width, height, tideLevel) - 8;
+    const zh = height - zy - 10;
+    return { x: zx, y: zy, width: zw, height: zh };
+  } else if (zone.name.includes('North') || zone.id.includes('NORTH')) {
+    // North Protected Swimming Cove
+    const zx = width * 0.67;
+    const zw = width * 0.31;
+    const zy = getSatShorelineY(zx + zw / 2, width, height, tideLevel) - 8;
+    const zh = height - zy - 10;
+    return { x: zx, y: zy, width: zw, height: zh };
+  } else if (zone.type === 'BEACH_ZONE') {
+    // Golden Sand Crescent
+    const zx = width * 0.15;
+    const zw = width * 0.75;
+    const zy = getSatRoadY(width * 0.5, width, height) + 6;
+    const zh = getSatShorelineY(width * 0.5, width, height, tideLevel) - 10 - zy;
+    return { x: zx, y: zy, width: zw, height: zh };
+  }
+  return { x: zone.x, y: zone.y, width: zone.width, height: zone.height };
+}
+
 function drawPhotorealisticSatelliteImagery(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -202,43 +305,36 @@ function drawPhotorealisticSatelliteImagery(
         ctx.fillStyle = bathyGrad;
         ctx.fillRect(0, dynamicShorelineY, width, height - dynamicShorelineY);
 
-        // Isobath Depth Contours
-        const isobaths = [
-          { y: dynamicShorelineY + 35, label: '0.8m ISOBATH' },
-          { y: dynamicShorelineY + 95, label: '1.5m ISOBATH' },
-          { y: dynamicShorelineY + 185, label: '2.5m SHELF' },
-          { y: dynamicShorelineY + 285, label: '3.8m TRENCH' },
+        // Isobath Depth Contours following natural crescent coastline
+        const isobathOffsets = [
+          { off: 25, label: '0.8m ISOBATH' },
+          { off: 65, label: '1.5m ISOBATH' },
+          { off: 110, label: '2.5m SHELF' },
+          { off: 160, label: '3.8m TRENCH' },
         ];
         ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
         ctx.lineWidth = 1.2;
         ctx.setLineDash([6, 6]);
-        isobaths.forEach((iso) => {
-          if (iso.y < height) {
-            ctx.beginPath();
-            ctx.moveTo(0, iso.y);
-            for (let x = 0; x <= width; x += 30) {
-              const cur = Math.sin(x * 0.015) * 5;
-              ctx.lineTo(x, iso.y + cur);
-            }
-            ctx.stroke();
+        isobathOffsets.forEach((iso) => {
+          ctx.beginPath();
+          for (let x = 0; x <= width; x += 30) {
+            const isoY = getSatShorelineY(x, width, height, environment.tideLevel) + iso.off;
+            const cur = Math.sin(x * 0.015) * 5;
+            if (x === 0) ctx.moveTo(x, isoY + cur);
+            else ctx.lineTo(x, isoY + cur);
+          }
+          ctx.stroke();
+          const labelY = getSatShorelineY(width - 95, width, height, environment.tideLevel) + iso.off;
+          if (labelY < height) {
             ctx.fillStyle = '#38bdf8';
             ctx.font = 'bold 8px monospace';
-            ctx.fillText(iso.label, width - 95, iso.y - 4);
+            ctx.fillText(iso.label, width - 95, labelY - 4);
           }
         });
         ctx.setLineDash([]);
       }
 
-      // Animated Surf Foam Crests (reflecting actual environmental waveHeight)
-      for (let wx = 120; wx < width; wx += 40) {
-        const wavePhase = Math.sin(wx * 0.025 + waveOffset * 1.8) * (3 + environment.waveHeight * 2.2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.moveTo(wx, dynamicShorelineY + 15 + wavePhase);
-        ctx.lineTo(wx + 26, dynamicShorelineY + 15 + wavePhase);
-        ctx.stroke();
-      }
+      // Animated Surf Foam is handled continuously in Section 2 for unified 60 FPS flowing wave physics
 
       // Live Telemetry HUD Overlay
       ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
@@ -659,7 +755,9 @@ function drawRiskHeatmap(
   beach: Beach,
   riskOverview?: BeachRiskOverview,
   hazards: Hazard[] = [],
-  waveOffset: number = 0
+  waveOffset: number = 0,
+  isSatelliteMode: boolean = false,
+  tideLevel: number = 1.2
 ) {
   ctx.save();
 
@@ -667,9 +765,12 @@ function drawRiskHeatmap(
   beach.zones.forEach((zone) => {
     const za = riskOverview?.zoneAssessments[zone.id];
     const score = za?.overallScore ?? 15;
-    const centerX = zone.x + zone.width / 2;
-    const centerY = zone.y + zone.height / 2;
-    const radius = Math.max(zone.width, zone.height) * 0.72 + Math.sin(waveOffset * 1.5) * 8;
+    const zRect = isSatelliteMode
+      ? getSatZoneRect(zone, width, height, tideLevel)
+      : zone;
+    const centerX = zRect.x + zRect.width / 2;
+    const centerY = zRect.y + zRect.height / 2;
+    const radius = Math.max(zRect.width, zRect.height) * 0.72 + Math.sin(waveOffset * 1.5) * 8;
 
     let heatColorInner = 'rgba(34, 197, 94, 0.38)'; // 0-24: LOW Green
     let heatColorOuter = 'rgba(34, 197, 94, 0)';
@@ -702,8 +803,10 @@ function drawRiskHeatmap(
   // 2. Focused hazard plume (e.g. rip current or severe breaker trench)
   const ripHazard = hazards.find((h) => h.type === 'RIP_CURRENT');
   if (ripHazard) {
-    const ripX = 560;
-    const ripY = dynamicShorelineY + 90;
+    const ripX = isSatelliteMode ? width * 0.295 : 560;
+    const ripY = isSatelliteMode
+      ? getSatShorelineY(ripX, width, height, tideLevel) + 65
+      : dynamicShorelineY + 90;
     const ripRad = 135 + Math.sin(waveOffset * 2.5) * 12;
 
     const ripGrad = ctx.createRadialGradient(ripX, ripY, 12, ripX, ripY, ripRad);
@@ -782,23 +885,156 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     };
   }, []);
 
+  // Live state reference for smooth 60 FPS animation loop
+  const stateRef = useRef({
+    beach,
+    environment,
+    visitors,
+    hazards,
+    riskOverview,
+    emergencyResources,
+    boardStates,
+    activeFailures,
+    sensorConflict,
+    isNightMode,
+    selectedVisitorId,
+    cameras,
+    drones,
+    droneCoverages,
+    viewMode,
+    satelliteBand,
+    showStreamlines,
+    showCCTV,
+    showGeofences,
+    showLegend,
+    imgLoaded,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      beach,
+      environment,
+      visitors,
+      hazards,
+      riskOverview,
+      emergencyResources,
+      boardStates,
+      activeFailures,
+      sensorConflict,
+      isNightMode,
+      selectedVisitorId,
+      cameras,
+      drones,
+      droneCoverages,
+      viewMode,
+      satelliteBand,
+      showStreamlines,
+      showCCTV,
+      showGeofences,
+      showLegend,
+      imgLoaded,
+    };
+    soundEngine.updateEnvironment(
+      environment.waveHeight,
+      environment.wavePeriod,
+      environment.windSpeed || 15
+    );
+  }, [
+    beach,
+    environment,
+    visitors,
+    hazards,
+    riskOverview,
+    emergencyResources,
+    boardStates,
+    activeFailures,
+    sensorConflict,
+    isNightMode,
+    selectedVisitorId,
+    cameras,
+    drones,
+    droneCoverages,
+    viewMode,
+    satelliteBand,
+    showStreamlines,
+    showCCTV,
+    showGeofences,
+    showLegend,
+    imgLoaded,
+  ]);
+
+  // Automatic acoustic alerts on danger events
+  const prevDistressRef = useRef<number>(0);
+  const prevBreachRef = useRef<number>(0);
+
+  useEffect(() => {
+    const distressCount = visitors.filter(
+      (v) => v.state === 'DISTRESS' || v.state === 'STRUGGLING'
+    ).length;
+    if (distressCount > prevDistressRef.current) {
+      soundEngine.playDistressAlarm();
+    }
+    prevDistressRef.current = distressCount;
+
+    const breachCount = visitors.filter((v) => {
+      const zone = beach.zones.find((z) => z.id === v.currentZone);
+      return zone?.type === 'RESTRICTED' || v.state === 'IN_RESTRICTED_ZONE';
+    }).length;
+    if (breachCount > prevBreachRef.current) {
+      soundEngine.playLifeguardWhistle();
+    }
+    prevBreachRef.current = breachCount;
+  }, [visitors, beach.zones]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    waveOffsetRef.current += 0.04 * (1 + environment.waveHeight * 0.4);
-    droneRotorRef.current += 0.35;
+    let animId: number;
+    let isMounted = true;
 
-    const width = beach.width;
-    const height = beach.height;
+    const render = () => {
+      if (!isMounted) return;
 
-    ctx.clearRect(0, 0, width, height);
+      const {
+        beach,
+        environment,
+        visitors,
+        hazards,
+        riskOverview,
+        emergencyResources,
+        boardStates,
+        activeFailures,
+        sensorConflict,
+        isNightMode,
+        selectedVisitorId,
+        cameras,
+        drones,
+        droneCoverages,
+        viewMode,
+        satelliteBand,
+        showStreamlines,
+        showCCTV,
+        showGeofences,
+      } = stateRef.current;
 
-    const tidePixelOffset = (environment.tideLevel - 1.2) * 15;
-    const dynamicShorelineY = beach.shorelineY + tidePixelOffset;
-    const currentSpeedVal = environment.currentSpeed ?? environment.waterCurrent ?? 0.3;
+      waveOffsetRef.current += 0.022 * (1 + (environment.waveHeight || 1.2) * 0.4);
+      droneRotorRef.current += 0.35;
+
+      const width = beach.width;
+      const height = beach.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const tidePixelOffset = (environment.tideLevel - 1.2) * 15;
+      const dynamicShorelineY = beach.shorelineY + tidePixelOffset;
+      const currentSpeedVal = environment.currentSpeed ?? environment.waterCurrent ?? 0.3;
+
+    const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
+    const isRushikonda = !isSuryalanka;
+    const isSatelliteMode = (viewMode === 'satellite' || viewMode === 'sat_heat') && isRushikonda && !!rushikondaImgRef.current;
 
     // =========================================================================
     // 1. TERRAIN & WATER BACKGROUND RENDERING (BY VIEW MODE)
@@ -806,8 +1042,6 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
     if (viewMode === 'satellite' || viewMode === 'sat_heat') {
       // PHOTOREALISTIC SATELLITE ORTHOPHOTO IMAGERY (WGS84 SENSORS)
-      const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
-      const isRushikonda = !isSuryalanka;
       drawPhotorealisticSatelliteImagery(
         ctx,
         width,
@@ -921,7 +1155,9 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         beach,
         riskOverview,
         hazards,
-        waveOffsetRef.current
+        waveOffsetRef.current,
+        isSatelliteMode,
+        environment.tideLevel
       );
     }
 
@@ -929,40 +1165,155 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     // 2. ANIMATED WATERLINE & SURF RIDGES
     // =========================================================================
 
-    // Wet sand swash zone
-    ctx.fillStyle = isNightMode ? 'rgba(51, 65, 85, 0.4)' : 'rgba(217, 119, 6, 0.25)';
-    ctx.fillRect(0, dynamicShorelineY - 8, width, 16);
+    if (isSatelliteMode) {
+      // SATELLITE MODE: REALISTIC CURVED COASTLINE & FLOWING WAVES MATCHING THE AERIAL IMAGE
+      const wavePhase = waveOffsetRef.current;
+      const waveAmp = 2.5 + environment.waveHeight * 1.8;
 
-    // Animated Frothy Shoreline
-    ctx.beginPath();
-    ctx.moveTo(0, dynamicShorelineY);
-    for (let x = 0; x <= width; x += 15) {
-      const wave = Math.sin(x * 0.03 + waveOffsetRef.current) * (3 + environment.waveHeight * 2);
-      ctx.lineTo(x, dynamicShorelineY + wave);
-    }
-    ctx.strokeStyle =
-      viewMode === 'thermal'
-        ? 'rgba(254, 240, 138, 0.5)'
-        : isNightMode
-        ? 'rgba(255, 255, 255, 0.45)'
-        : 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+      // 1. Dynamic Swash & Backwash Surge (Water flowing up onto the golden sand and retreating)
+      const swashCycle = (Math.sin(wavePhase * 1.4) + 1) / 2; // 0 to 1 smooth surge cycle
+      const swashReach = 16 + environment.waveHeight * 9;
 
-    // Ocean swell crests
-    for (let r = 1; r <= 3; r++) {
-      const rowY = dynamicShorelineY + r * 75;
-      if (rowY < height) {
+      ctx.save();
+      // Translucent shallow swash wash across wet sand
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 10) {
+        const baseShoreY = getSatShorelineY(x, width, height, environment.tideLevel);
+        const curve = Math.sin(x * 0.02 + wavePhase * 1.8) * waveAmp;
+        const swashY = baseShoreY - swashCycle * swashReach + curve;
+        if (x === 0) ctx.moveTo(x, swashY);
+        else ctx.lineTo(x, swashY);
+      }
+      for (let x = width; x >= 0; x -= 20) {
+        const baseShoreY = getSatShorelineY(x, width, height, environment.tideLevel);
+        ctx.lineTo(x, baseShoreY + 12);
+      }
+      ctx.closePath();
+      const swashGrad = ctx.createLinearGradient(0, height * 0.5, 0, height);
+      swashGrad.addColorStop(0, `rgba(186, 230, 253, ${0.12 + 0.16 * swashCycle})`);
+      swashGrad.addColorStop(1, `rgba(56, 189, 248, ${0.22 + 0.14 * swashCycle})`);
+      ctx.fillStyle = swashGrad;
+      ctx.fill();
+
+      // Frothy white swash leading edge
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 8) {
+        const baseShoreY = getSatShorelineY(x, width, height, environment.tideLevel);
+        const curve = Math.sin(x * 0.02 + wavePhase * 1.8) * waveAmp;
+        const swashY = baseShoreY - swashCycle * swashReach + curve;
+        if (x === 0) ctx.moveTo(x, swashY);
+        else ctx.lineTo(x, swashY);
+      }
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.75 + swashCycle * 0.22})`;
+      ctx.lineWidth = 3.0;
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+
+      // Delicate trailing foam bubbles on sand during backwash
+      for (let i = 0; i < 28; i++) {
+        const bx = (i * 37 + wavePhase * 18) % width;
+        const bShore = getSatShorelineY(bx, width, height, environment.tideLevel);
+        const by = bShore - (swashCycle * 0.65) * swashReach + Math.sin(i * 4.3) * 5;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
         ctx.beginPath();
-        ctx.moveTo(0, rowY);
-        for (let x = 0; x <= width; x += 20) {
-          const crest = Math.sin(x * 0.02 + waveOffsetRef.current * (1 + r * 0.2)) * (2 + environment.waveHeight * 1.5);
-          ctx.lineTo(x, rowY + crest);
+        ctx.arc(bx, by, 1.2 + (i % 3) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 2. Continuous Oceanic Swell Wave Trains Rolling In Shoreward
+      const numSwellRanks = 5;
+      for (let s = 0; s < numSwellRanks; s++) {
+        // Swells propagate continuously from deep ocean (high offset) to nearshore (0 offset)
+        const progress = ((wavePhase * 0.32 + s / numSwellRanks) % 1.0);
+        const distFromShore = (1.0 - progress) * (height * 0.36);
+
+        ctx.save();
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += 12) {
+          const shoreY = getSatShorelineY(x, width, height, environment.tideLevel);
+          const rowY = shoreY + distFromShore;
+          if (rowY < height + 15) {
+            const waveUndulation = Math.sin(x * 0.016 + wavePhase * 2.0 + s * 1.2) * (2.8 + environment.waveHeight * 1.6);
+            if (x === 0) ctx.moveTo(x, rowY + waveUndulation);
+            else ctx.lineTo(x, rowY + waveUndulation);
+          }
         }
-        ctx.strokeStyle =
-          viewMode === 'thermal' ? 'rgba(147, 51, 234, 0.3)' : `rgba(255, 255, 255, ${0.25 - r * 0.05})`;
-        ctx.lineWidth = 1.5;
+
+        // Shoaling effect: crest height and brightness grow as wave reaches shallows
+        const shoaling = 1.0 - (distFromShore / (height * 0.36));
+        const alpha = 0.22 + shoaling * 0.68;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 1.6 + shoaling * 2.4;
+        ctx.shadowColor = 'rgba(186, 230, 253, 0.6)';
+        ctx.shadowBlur = shoaling > 0.55 ? 6 : 2;
         ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. Basalt Headland Rocky Reef Surf Crash & Spray (Left x <= 0.28 * width)
+      const reefBurst = Math.sin(wavePhase * 2.2);
+      for (let w = 0; w < 3; w++) {
+        const rx = width * (0.08 + w * 0.07);
+        const ry = height * (0.78 + w * 0.03);
+        const reefFoamRad = 20 + w * 14 + Math.max(0, reefBurst) * 10;
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 - w * 0.15})`;
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.arc(rx, ry, reefFoamRad, 0.3, 2.5);
+        ctx.stroke();
+
+        // Spray particles flying off rocks
+        if (reefBurst > 0.2) {
+          for (let p = 0; p < 5; p++) {
+            const px = rx + Math.cos(p * 1.3 + wavePhase) * (reefFoamRad + 6);
+            const py = ry - Math.sin(p * 1.3) * (reefFoamRad * 0.6 + 4);
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * reefBurst})`;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+    } else {
+      // Wet sand swash zone
+      ctx.fillStyle = isNightMode ? 'rgba(51, 65, 85, 0.4)' : 'rgba(217, 119, 6, 0.25)';
+      ctx.fillRect(0, dynamicShorelineY - 8, width, 16);
+
+      // Animated Frothy Shoreline
+      ctx.beginPath();
+      ctx.moveTo(0, dynamicShorelineY);
+      for (let x = 0; x <= width; x += 15) {
+        const wave = Math.sin(x * 0.03 + waveOffsetRef.current) * (3 + environment.waveHeight * 2);
+        ctx.lineTo(x, dynamicShorelineY + wave);
+      }
+      ctx.strokeStyle =
+        viewMode === 'thermal'
+          ? 'rgba(254, 240, 138, 0.5)'
+          : isNightMode
+          ? 'rgba(255, 255, 255, 0.45)'
+          : 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Ocean swell crests
+      for (let r = 1; r <= 3; r++) {
+        const rowY = dynamicShorelineY + r * 75;
+        if (rowY < height) {
+          ctx.beginPath();
+          ctx.moveTo(0, rowY);
+          for (let x = 0; x <= width; x += 20) {
+            const crest = Math.sin(x * 0.02 + waveOffsetRef.current * (1 + r * 0.2)) * (2 + environment.waveHeight * 1.5);
+            ctx.lineTo(x, rowY + crest);
+          }
+          ctx.strokeStyle =
+            viewMode === 'thermal' ? 'rgba(147, 51, 234, 0.3)' : `rgba(255, 255, 255, ${0.25 - r * 0.05})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
       }
     }
 
@@ -976,62 +1327,65 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         const isCritical = za?.category === 'CRITICAL';
         const isHigh = za?.category === 'HIGH';
         const isModerate = za?.category === 'MODERATE';
+        const zRect = isSatelliteMode
+          ? getSatZoneRect(zone, width, height, environment.tideLevel)
+          : zone;
 
         ctx.save();
 
         if (zone.type === 'RESTRICTED') {
           ctx.fillStyle = isCritical ? 'rgba(239, 68, 68, 0.32)' : 'rgba(239, 68, 68, 0.16)';
-          ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.fillRect(zRect.x, zRect.y, zRect.width, zRect.height);
 
           ctx.strokeStyle = isCritical ? '#dc2626' : '#ef4444';
           ctx.lineWidth = isCritical ? 3 : 2;
           ctx.setLineDash([6, 6]);
-          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.strokeRect(zRect.x, zRect.y, zRect.width, zRect.height);
 
           ctx.fillStyle = '#ef4444';
           ctx.font = 'bold 11px sans-serif';
-          ctx.fillText(`⚠️ ${zone.name.toUpperCase()}`, zone.x + 10, zone.y + 22);
+          ctx.fillText(`⚠️ ${zone.name.toUpperCase()}`, zRect.x + 10, zRect.y + 22);
 
           if (za && za.overallScore > 0) {
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 10px monospace';
-            ctx.fillText(`🔴 RISK: ${za.overallScore}/100 [${za.category}]`, zone.x + 10, zone.y + 38);
+            ctx.fillText(`🔴 RISK: ${za.overallScore}/100 [${za.category}]`, zRect.x + 10, zRect.y + 38);
           }
         } else if (zone.type === 'SWIMMING') {
           if (isCritical) ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
           else if (isHigh) ctx.fillStyle = 'rgba(249, 115, 22, 0.2)';
           else if (isModerate) ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
           else ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-          ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.fillRect(zRect.x, zRect.y, zRect.width, zRect.height);
 
           ctx.strokeStyle = isCritical ? '#ef4444' : isHigh ? '#f97316' : isModerate ? '#f59e0b' : '#38bdf8';
           ctx.lineWidth = isCritical || isHigh ? 2.5 : 1.5;
           ctx.setLineDash([4, 4]);
-          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.strokeRect(zRect.x, zRect.y, zRect.width, zRect.height);
 
           const bannerColor = isCritical ? '#991b1b' : isHigh ? '#c2410c' : isModerate ? '#b45309' : '#0284c7';
           ctx.fillStyle = bannerColor;
-          ctx.fillRect(zone.x + 8, zone.y + 8, 220, 22);
+          ctx.fillRect(zRect.x + 8, zRect.y + 8, Math.min(220, zRect.width - 16), 22);
 
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 10px sans-serif';
-          ctx.fillText(`🏊 ${zone.name}`, zone.x + 14, zone.y + 23);
+          ctx.fillText(`🏊 ${zone.name}`, zRect.x + 14, zRect.y + 23);
 
           if (za) {
             ctx.fillStyle = isCritical ? '#fecaca' : isHigh ? '#fed7aa' : isModerate ? '#fef3c7' : '#e0f2fe';
             ctx.font = 'bold 10px monospace';
             const dot = isCritical ? '🔴' : isHigh ? '🟠' : isModerate ? '🟡' : '🟢';
-            ctx.fillText(`${dot} RISK: ${za.overallScore}/100 [${za.category}]`, zone.x + 14, zone.y + 45);
+            ctx.fillText(`${dot} RISK: ${za.overallScore}/100 [${za.category}]`, zRect.x + 14, zRect.y + 45);
           }
         } else if (zone.type === 'BEACH_ZONE') {
           ctx.strokeStyle = 'rgba(217, 119, 6, 0.35)';
           ctx.lineWidth = 1;
           ctx.setLineDash([3, 3]);
-          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.strokeRect(zRect.x, zRect.y, zRect.width, zRect.height);
 
           ctx.fillStyle = isNightMode ? '#cbd5e1' : '#92400e';
           ctx.font = 'bold 10px sans-serif';
-          ctx.fillText(`🏖️ ${zone.name}`, zone.x + 10, zone.y + 20);
+          ctx.fillText(`🏖️ ${zone.name}`, zRect.x + 10, zRect.y + 20);
         }
         ctx.restore();
       });
@@ -1044,22 +1398,23 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     const isRipActive = currentSpeedVal >= 0.5 || hazards.some((h) => h.type === 'RIP_CURRENT') || viewMode === 'hydrodynamic';
 
     if (showStreamlines && isRipActive) {
-      const ripChannelX = 560;
-      const ripWidth = 140;
+      const ripChannelX = isSatelliteMode ? width * 0.295 : 560;
+      const ripStartY = isSatelliteMode ? getSatShorelineY(ripChannelX, width, height, environment.tideLevel) : dynamicShorelineY;
+      const ripWidth = isSatelliteMode ? 110 : 140;
 
       ctx.save();
       // Channel shading
-      const channelGrad = ctx.createLinearGradient(0, dynamicShorelineY, 0, height);
+      const channelGrad = ctx.createLinearGradient(0, ripStartY, 0, height);
       channelGrad.addColorStop(0, 'rgba(239, 68, 68, 0.08)');
       channelGrad.addColorStop(0.5, 'rgba(239, 68, 68, 0.22)');
       channelGrad.addColorStop(1, 'rgba(168, 85, 247, 0.25)');
       ctx.fillStyle = channelGrad;
-      ctx.fillRect(ripChannelX - ripWidth / 2, dynamicShorelineY, ripWidth, height - dynamicShorelineY);
+      ctx.fillRect(ripChannelX - ripWidth / 2, ripStartY, ripWidth, height - ripStartY);
 
       ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
-      ctx.strokeRect(ripChannelX - ripWidth / 2, dynamicShorelineY, ripWidth, height - dynamicShorelineY);
+      ctx.strokeRect(ripChannelX - ripWidth / 2, ripStartY, ripWidth, height - ripStartY);
       ctx.setLineDash([]);
 
       // Feeder vectors (left & right)
@@ -1067,35 +1422,39 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       ctx.strokeStyle = '#f59e0b';
       ctx.lineWidth = 2;
 
-      for (let fx = 320; fx < ripChannelX - 40; fx += 50) {
+      const leftFeederStart = isSatelliteMode ? width * 0.12 : 320;
+      for (let fx = leftFeederStart; fx < ripChannelX - 35; fx += 45) {
         const arrowX = fx + feederPulse;
         if (arrowX < ripChannelX - 10) {
+          const arrowY = isSatelliteMode ? getSatShorelineY(arrowX, width, height, environment.tideLevel) + 20 : dynamicShorelineY + 25;
           ctx.beginPath();
-          ctx.moveTo(arrowX - 15, dynamicShorelineY + 25);
-          ctx.lineTo(arrowX + 5, dynamicShorelineY + 25);
+          ctx.moveTo(arrowX - 15, arrowY);
+          ctx.lineTo(arrowX + 5, arrowY);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(arrowX, dynamicShorelineY + 21);
-          ctx.lineTo(arrowX + 6, dynamicShorelineY + 25);
-          ctx.lineTo(arrowX, dynamicShorelineY + 29);
+          ctx.moveTo(arrowX, arrowY - 4);
+          ctx.lineTo(arrowX + 6, arrowY);
+          ctx.lineTo(arrowX, arrowY + 4);
           ctx.fillStyle = '#f59e0b';
           ctx.fill();
         }
       }
 
-      for (let fx = 800; fx > ripChannelX + 40; fx -= 50) {
+      const rightFeederStart = isSatelliteMode ? width * 0.52 : 800;
+      for (let fx = rightFeederStart; fx > ripChannelX + 35; fx -= 45) {
         const arrowX = fx - feederPulse;
         if (arrowX > ripChannelX + 10) {
+          const arrowY = isSatelliteMode ? getSatShorelineY(arrowX, width, height, environment.tideLevel) + 20 : dynamicShorelineY + 25;
           ctx.beginPath();
-          ctx.moveTo(arrowX + 15, dynamicShorelineY + 25);
-          ctx.lineTo(arrowX - 5, dynamicShorelineY + 25);
+          ctx.moveTo(arrowX + 15, arrowY);
+          ctx.lineTo(arrowX - 5, arrowY);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(arrowX, dynamicShorelineY + 21);
-          ctx.lineTo(arrowX - 6, dynamicShorelineY + 25);
-          ctx.lineTo(arrowX, dynamicShorelineY + 29);
+          ctx.moveTo(arrowX, arrowY - 4);
+          ctx.lineTo(arrowX - 6, arrowY);
+          ctx.lineTo(arrowX, arrowY + 4);
           ctx.fillStyle = '#f59e0b';
           ctx.fill();
         }
@@ -1103,11 +1462,12 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
       // Seaward Rip Chute
       for (let j = 0; j < 3; j++) {
-        const laneX = ripChannelX - 35 + j * 35;
-        const arrowPhase = (waveOffsetRef.current * 28 + j * 30) % 150;
-        const arrowY = dynamicShorelineY + 30 + arrowPhase;
+        const laneX = ripChannelX - 25 + j * 25;
+        const maxTravel = Math.max(80, height - ripStartY - 40);
+        const arrowPhase = (waveOffsetRef.current * 28 + j * 30) % maxTravel;
+        const arrowY = ripStartY + 25 + arrowPhase;
 
-        if (arrowY < height - 20) {
+        if (arrowY < height - 15) {
           ctx.beginPath();
           ctx.moveTo(laneX, arrowY);
           ctx.lineTo(laneX, arrowY + 22);
@@ -1126,7 +1486,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
       ctx.fillStyle = '#ef4444';
       ctx.font = 'bold 9px monospace';
-      ctx.fillText(`⚡ SEAWARD RIP JET: ${currentSpeedVal.toFixed(2)} m/s`, ripChannelX - 65, height - 35);
+      ctx.fillText(`⚡ SEAWARD RIP JET: ${currentSpeedVal.toFixed(2)} m/s`, ripChannelX - 65, height - 25);
       ctx.restore();
     }
 
@@ -1138,6 +1498,9 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       cameras.forEach((cam) => {
         const isOnline = cam.status === 'ONLINE';
         const camColor = cam.color || '#06b6d4';
+        const camPos = isSatelliteMode
+          ? projectToSatellite(cam.position, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+          : cam.position;
 
         if (isOnline) {
           ctx.save();
@@ -1145,16 +1508,16 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           const endAngle = ((cam.rotation + cam.fieldOfView / 2) * Math.PI) / 180;
 
           ctx.beginPath();
-          ctx.moveTo(cam.position.x, cam.position.y);
-          ctx.arc(cam.position.x, cam.position.y, cam.range, startAngle, endAngle);
+          ctx.moveTo(camPos.x, camPos.y);
+          ctx.arc(camPos.x, camPos.y, cam.range, startAngle, endAngle);
           ctx.closePath();
 
           const fovGrad = ctx.createRadialGradient(
-            cam.position.x,
-            cam.position.y,
+            camPos.x,
+            camPos.y,
             10,
-            cam.position.x,
-            cam.position.y,
+            camPos.x,
+            camPos.y,
             cam.range
           );
           fovGrad.addColorStop(0, `${camColor}33`);
@@ -1173,7 +1536,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         ctx.save();
         ctx.fillStyle = '#0f172a';
         ctx.beginPath();
-        ctx.arc(cam.position.x, cam.position.y, 7, 0, Math.PI * 2);
+        ctx.arc(camPos.x, camPos.y, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = isOnline ? camColor : '#64748b';
         ctx.lineWidth = 1.5;
@@ -1181,22 +1544,22 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
         const rotRad = (cam.rotation * Math.PI) / 180;
         ctx.beginPath();
-        ctx.moveTo(cam.position.x, cam.position.y);
-        ctx.lineTo(cam.position.x + Math.cos(rotRad) * 11, cam.position.y + Math.sin(rotRad) * 11);
+        ctx.moveTo(camPos.x, camPos.y);
+        ctx.lineTo(camPos.x + Math.cos(rotRad) * 11, camPos.y + Math.sin(rotRad) * 11);
         ctx.strokeStyle = isOnline ? '#22c55e' : '#ef4444';
         ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-        ctx.fillRect(cam.position.x - 22, cam.position.y - 20, 44, 12);
+        ctx.fillRect(camPos.x - 22, camPos.y - 20, 44, 12);
         ctx.strokeStyle = isOnline ? camColor : '#64748b';
         ctx.lineWidth = 0.8;
-        ctx.strokeRect(cam.position.x - 22, cam.position.y - 20, 44, 12);
+        ctx.strokeRect(camPos.x - 22, camPos.y - 20, 44, 12);
 
         ctx.fillStyle = isOnline ? '#e2e8f0' : '#94a3b8';
         ctx.font = 'bold 8px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(cam.id, cam.position.x, cam.position.y - 11);
+        ctx.fillText(cam.id, camPos.x, camPos.y - 11);
         ctx.restore();
       });
     }
@@ -1208,12 +1571,18 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     emergencyResources
       .filter((r) => r.type === 'LIFEGUARD')
       .forEach((lg) => {
+        const lgPos = isSatelliteMode
+          ? projectToSatellite(lg.position, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+          : lg.position;
         const isDispatched = lg.status === 'EN_ROUTE' || lg.status === 'ON_SCENE' || lg.status === 'DISPATCHED';
 
         if (isDispatched && lg.targetPosition) {
+          const tgtPos = isSatelliteMode
+            ? projectToSatellite(lg.targetPosition, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+            : lg.targetPosition;
           ctx.beginPath();
-          ctx.moveTo(lg.position.x, lg.position.y);
-          ctx.lineTo(lg.targetPosition.x, lg.targetPosition.y);
+          ctx.moveTo(lgPos.x, lgPos.y);
+          ctx.lineTo(tgtPos.x, tgtPos.y);
           ctx.strokeStyle = '#f59e0b';
           ctx.lineWidth = 2;
           ctx.setLineDash([4, 4]);
@@ -1222,7 +1591,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         }
 
         ctx.beginPath();
-        ctx.arc(lg.position.x, lg.position.y, 14, 0, Math.PI * 2);
+        ctx.arc(lgPos.x, lgPos.y, 14, 0, Math.PI * 2);
         ctx.fillStyle = isDispatched ? '#f59e0b' : '#ca8a04';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
@@ -1231,25 +1600,31 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
         ctx.fillStyle = '#ffffff';
         ctx.font = '10px sans-serif';
-        ctx.fillText('🛟', lg.position.x - 5, lg.position.y + 4);
+        ctx.fillText('🛟', lgPos.x - 5, lgPos.y + 4);
 
         ctx.fillStyle = '#78350f';
         ctx.font = 'bold 8px monospace';
-        ctx.fillText(lg.id, lg.position.x - 12, lg.position.y - 16);
+        ctx.fillText(lg.id, lgPos.x - 12, lgPos.y - 16);
       });
 
     // Rescue Boats
     emergencyResources
       .filter((r) => r.type === 'RESCUE_BOAT')
       .forEach((boat) => {
+        const boatPos = isSatelliteMode
+          ? projectToSatellite(boat.position, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+          : boat.position;
         const isDispatched = boat.status === 'EN_ROUTE' || boat.status === 'ON_SCENE';
 
         if (isDispatched && boat.targetPosition) {
+          const tgtPos = isSatelliteMode
+            ? projectToSatellite(boat.targetPosition, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+            : boat.targetPosition;
           ctx.beginPath();
-          ctx.moveTo(boat.position.x, boat.position.y);
-          ctx.lineTo(boat.position.x - 20, boat.position.y + 10);
-          ctx.moveTo(boat.position.x, boat.position.y);
-          ctx.lineTo(boat.position.x - 20, boat.position.y - 10);
+          ctx.moveTo(boatPos.x, boatPos.y);
+          ctx.lineTo(boatPos.x - 20, boatPos.y + 10);
+          ctx.moveTo(boatPos.x, boatPos.y);
+          ctx.lineTo(boatPos.x - 20, boatPos.y - 10);
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -1257,7 +1632,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
         ctx.fillStyle = viewMode === 'thermal' ? '#f59e0b' : '#0284c7';
         ctx.beginPath();
-        ctx.ellipse(boat.position.x, boat.position.y, 16, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(boatPos.x, boatPos.y, 16, 8, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
@@ -1265,17 +1640,20 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
         ctx.fillStyle = '#ffffff';
         ctx.font = '10px sans-serif';
-        ctx.fillText('🚤', boat.position.x - 7, boat.position.y + 4);
+        ctx.fillText('🚤', boatPos.x - 7, boatPos.y + 4);
       });
 
     // Airborne Drones
     drones.forEach((drone) => {
+      const dronePos = isSatelliteMode
+        ? projectToSatellite(drone.canvasPosition, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+        : drone.canvasPosition;
       const isAirborne = drone.altitude > 2;
       const cov = droneCoverages.find((c) => c.droneId === drone.id);
 
       if (isAirborne && cov) {
         ctx.beginPath();
-        ctx.arc(drone.canvasPosition.x, drone.canvasPosition.y, cov.radiusMeters, 0, Math.PI * 2);
+        ctx.arc(dronePos.x, dronePos.y, cov.radiusMeters, 0, Math.PI * 2);
         ctx.fillStyle = viewMode === 'thermal' ? 'rgba(254, 240, 138, 0.12)' : 'rgba(6, 182, 212, 0.08)';
         ctx.fill();
         ctx.strokeStyle = viewMode === 'thermal' ? '#fde047' : 'rgba(6, 182, 212, 0.4)';
@@ -1286,7 +1664,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       }
 
       ctx.save();
-      ctx.translate(drone.canvasPosition.x, drone.canvasPosition.y);
+      ctx.translate(dronePos.x, dronePos.y);
       ctx.strokeStyle = viewMode === 'thermal' ? '#ffffff' : '#38bdf8';
       ctx.lineWidth = 1.5;
 
@@ -1309,40 +1687,61 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     // =========================================================================
 
     if (showGeofences || viewMode === 'tactical') {
-      // Lateral Escape Corridors out of Rip Trench into Shallow Sandbars
       ctx.save();
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 6]);
 
-      // Left Lateral Escape Path (Rip -> North Sandbar)
-      ctx.beginPath();
-      ctx.moveTo(400, 340);
-      ctx.lineTo(240, 310);
-      ctx.lineTo(240, 140);
-      ctx.stroke();
+      if (isSatelliteMode) {
+        // Lateral Escape Corridors out of Rip Trench into Central Sandy Cove
+        const ripChX = width * 0.295;
+        const ripSY = getSatShorelineY(ripChX, width, height, environment.tideLevel);
+        const escapeSY = ripSY + 45;
 
-      // Right Lateral Escape Path (Rip -> South Sandbar)
-      ctx.beginPath();
-      ctx.moveTo(440, 340);
-      ctx.lineTo(600, 310);
-      ctx.lineTo(600, 140);
-      ctx.stroke();
+        // Escape Path to Central Shallows
+        ctx.beginPath();
+        ctx.moveTo(ripChX, escapeSY);
+        ctx.lineTo(width * 0.44, escapeSY - 15);
+        ctx.lineTo(width * 0.44, getSatRoadY(width * 0.44, width, height) + 35);
+        ctx.stroke();
 
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.85)';
-      ctx.font = 'bold 8px monospace';
-      ctx.fillText('◀ LATERAL ESCAPE ROUTE', 250, 305);
-      ctx.fillText('LATERAL ESCAPE ROUTE ▶', 460, 305);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.9)';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('◀ LATERAL ESCAPE TO SHALLOWS', width * 0.32, escapeSY - 10);
+      } else {
+        // Left Lateral Escape Path (Rip -> North Sandbar)
+        ctx.beginPath();
+        ctx.moveTo(400, 340);
+        ctx.lineTo(240, 310);
+        ctx.lineTo(240, 140);
+        ctx.stroke();
+
+        // Right Lateral Escape Path (Rip -> South Sandbar)
+        ctx.beginPath();
+        ctx.moveTo(440, 340);
+        ctx.lineTo(600, 310);
+        ctx.lineTo(600, 140);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.85)';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('◀ LATERAL ESCAPE ROUTE', 250, 305);
+        ctx.fillText('LATERAL ESCAPE ROUTE ▶', 460, 305);
+      }
       ctx.restore();
     }
 
-    // Acoustic Siren Rings radiating from Lifeguard Towers
+    // Acoustic Siren Rings radiating from Lifeguards
     if (emergencyResources.some((r) => r.type === 'LIFEGUARD' && (r.status === 'EN_ROUTE' || r.status === 'ON_SCENE')) || environment.waveHeight > 2.0 || (environment.currentSpeed ?? environment.waterCurrent ?? 0) > 0.8) {
       emergencyResources.filter((r) => r.type === 'LIFEGUARD').forEach((lg) => {
+        const lgPos = isSatelliteMode
+          ? projectToSatellite(lg.position, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+          : lg.position;
         const sirenRing = (Date.now() / 40) % 45;
         ctx.beginPath();
-        ctx.arc(lg.position.x, lg.position.y, 15 + sirenRing, 0, Math.PI * 2);
+        ctx.arc(lgPos.x, lgPos.y, 15 + sirenRing, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 0.6 - sirenRing / 50)})`;
         ctx.lineWidth = 1.5;
         ctx.stroke();
@@ -1360,10 +1759,15 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       const isSelected = v.id === selectedVisitorId;
       const awareness = v.awarenessState || 'UNAWARE';
 
+      // Project position to satellite geometry if satellite mode is active
+      const pos = isSatelliteMode
+        ? projectToSatellite(v.position, beach.width, beach.height, dynamicShorelineY, width, height, environment.tideLevel)
+        : v.position;
+
       if (viewMode === 'thermal') {
         // FLIR THERMAL HEAT SIGNATURE RENDERING (~37°C white-hot core with infrared corona)
         const rad = isDistressed ? 10 + pulsePhase * 0.5 : awareness === 'FLEEING' ? 9 : 7;
-        const heatGrad = ctx.createRadialGradient(v.position.x, v.position.y, 1.5, v.position.x, v.position.y, rad);
+        const heatGrad = ctx.createRadialGradient(pos.x, pos.y, 1.5, pos.x, pos.y, rad);
         if (isDistressed) {
           heatGrad.addColorStop(0, '#ffffff'); // 37.5°C white core
           heatGrad.addColorStop(0.35, '#fde047'); // 36.5°C yellow
@@ -1382,7 +1786,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         }
         ctx.fillStyle = heatGrad;
         ctx.beginPath();
-        ctx.arc(v.position.x, v.position.y, rad, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, rad, 0, Math.PI * 2);
         ctx.fill();
 
         // Thermal temperature tag
@@ -1390,7 +1794,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 8px monospace';
           const tag = isDistressed ? '37.8°C [SOS]' : awareness === 'FLEEING' ? '37.4°C [FLEE]' : '36.8°C';
-          ctx.fillText(tag, v.position.x - 14, v.position.y - 10);
+          ctx.fillText(tag, pos.x - 14, pos.y - 10);
         }
       } else {
         // TACTICAL & SATELLITE STANDARD RENDERING
@@ -1399,7 +1803,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         if (awareness === 'SUSPICIOUS') {
           // Amber/Yellow Sensory Halo (Hesitation & Awareness)
           ctx.beginPath();
-          ctx.arc(v.position.x, v.position.y, 9, 0, Math.PI * 2);
+          ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2);
           ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
           ctx.lineWidth = 1.8;
           ctx.setLineDash([2, 2]);
@@ -1408,11 +1812,11 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
           ctx.fillStyle = '#f59e0b';
           ctx.font = 'bold 8px sans-serif';
-          ctx.fillText('⚠️', v.position.x + 5, v.position.y - 6);
+          ctx.fillText('⚠️', pos.x + 5, pos.y - 6);
         } else if (awareness === 'FLEEING') {
           // Red/Amber Pulsating Halo with Active Escape Vector
           ctx.beginPath();
-          ctx.arc(v.position.x, v.position.y, 10 + (pulsePhase % 4), 0, Math.PI * 2);
+          ctx.arc(pos.x, pos.y, 10 + (pulsePhase % 4), 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(244, 63, 94, ${0.9 - (pulsePhase % 4) * 0.15})`;
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -1420,11 +1824,11 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           // Draw Directional Escape Vector Arrow
           const esc = v.escapeVector || { dx: 0, dy: -1 };
           const arrowLen = 18;
-          const endX = v.position.x + esc.dx * arrowLen;
-          const endY = v.position.y + esc.dy * arrowLen;
+          const endX = pos.x + esc.dx * arrowLen;
+          const endY = pos.y + esc.dy * arrowLen;
 
           ctx.beginPath();
-          ctx.moveTo(v.position.x, v.position.y);
+          ctx.moveTo(pos.x, pos.y);
           ctx.lineTo(endX, endY);
           ctx.strokeStyle = '#22c55e';
           ctx.lineWidth = 2;
@@ -1441,20 +1845,20 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         } else if (awareness === 'TRAPPED') {
           // Purple Pulsating Trap/Surrounded Indicator
           ctx.beginPath();
-          ctx.arc(v.position.x, v.position.y, 13 + pulsePhase, 0, Math.PI * 2);
+          ctx.arc(pos.x, pos.y, 13 + pulsePhase, 0, Math.PI * 2);
           ctx.strokeStyle = 'rgba(217, 70, 239, 0.9)';
           ctx.lineWidth = 2.5;
           ctx.stroke();
 
           ctx.fillStyle = '#d946ef';
           ctx.font = 'bold 8px sans-serif';
-          ctx.fillText('🚨 TRAPPED', v.position.x - 18, v.position.y - 14);
+          ctx.fillText('🚨 TRAPPED', pos.x - 18, pos.y - 14);
         }
 
         // Selected Reticle
         if (isSelected) {
           ctx.beginPath();
-          ctx.arc(v.position.x, v.position.y, 14, 0, Math.PI * 2);
+          ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
           ctx.strokeStyle = '#22d3ee';
           ctx.lineWidth = 2.5;
           ctx.stroke();
@@ -1463,22 +1867,22 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
         // Distress Callout
         if (isDistressed) {
           ctx.beginPath();
-          ctx.arc(v.position.x, v.position.y, 12 + pulsePhase, 0, Math.PI * 2);
+          ctx.arc(pos.x, pos.y, 12 + pulsePhase, 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(239, 68, 68, ${0.8 - pulsePhase * 0.07})`;
           ctx.lineWidth = 2.5;
           ctx.stroke();
 
           ctx.fillStyle = '#ef4444';
           ctx.font = 'bold 9px sans-serif';
-          ctx.fillText('🆘 SOS', v.position.x - 14, v.position.y - 12);
+          ctx.fillText('🆘 SOS', pos.x - 14, pos.y - 12);
         }
 
         // Computer Vision Edge Bounding Box Overlay (CCTV Mode)
         if (showCCTV && (viewMode === 'tactical' || viewMode === 'satellite')) {
           const bw = 16;
           const bh = 22;
-          const bx = v.position.x - bw / 2;
-          const by = v.position.y - bh / 2;
+          const bx = pos.x - bw / 2;
+          const by = pos.y - bh / 2;
           const boxColor = isDistressed ? '#f43f5e' : awareness === 'FLEEING' ? '#f59e0b' : '#22d3ee';
 
           // Corner reticle brackets
@@ -1499,7 +1903,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
         const radius = v.type === 'CHILD' ? 3.5 : 5;
         ctx.beginPath();
-        ctx.arc(v.position.x, v.position.y, radius, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = isDistressed ? '#dc2626' : awareness === 'FLEEING' ? '#f43f5e' : v.color || '#38bdf8';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
@@ -1512,7 +1916,6 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     // 8. SATELLITE & THERMAL HUD TELEMETRY OVERLAY
     // =========================================================================
 
-    const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
     const coordStr = isSuryalanka
       ? '15°50\'04"N  80°30\'18"E | BAPATLA SHELF'
       : '17°46\'46"N  83°23\'18"E | RUSHIKONDA BLUE FLAG';
@@ -1527,26 +1930,26 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           : 'BATHYMETRIC DEPTH CONTOURS';
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-      ctx.fillRect(15, 55, 340, 48);
+      ctx.fillRect(15, 55, 360, 50);
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
       ctx.lineWidth = 1.2;
-      ctx.strokeRect(15, 55, 340, 48);
+      ctx.strokeRect(15, 55, 360, 50);
 
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 10px monospace';
       ctx.fillText(
         viewMode === 'sat_heat'
-          ? `🛰️+🔥 SENTINEL-2 ORTHOPHOTO + RISK HEATMAP`
-          : `🛰️ SENTINEL-2 / WORLDVIEW-3 HIGH-RES ORTHOPHOTO`,
+          ? `🛰️+🔥 RUSHIKONDA SATELLITE DIGITAL TWIN + RISK HEATMAP`
+          : `🛰️ RUSHIKONDA SATELLITE DIGITAL TWIN [AERIAL RECON]`,
         25,
         70
       );
       ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 9px monospace';
       ctx.fillText(`${beachName} | ${coordStr}`, 25, 84);
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = '#34d399';
       ctx.font = '8px monospace';
-      ctx.fillText(`BAND: ${bandName} | GSD: 0.3m/px | ALT: 786 KM (LEO)`, 25, 96);
+      ctx.fillText(`BAND: ${bandName} | AERIAL GEOMETRY SYNCHRONIZED`, 25, 96);
     } else if (viewMode === 'heat') {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
       ctx.fillRect(15, 55, 310, 42);
@@ -1574,25 +1977,16 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
       ctx.font = '8px monospace';
       ctx.fillText(`${coordStr} | 16°C - 42°C`, 25, 82);
     }
-  }, [
-    beach,
-    environment,
-    visitors,
-    hazards,
-    riskOverview,
-    emergencyResources,
-    boardStates,
-    activeFailures,
-    sensorConflict,
-    isNightMode,
-    selectedVisitorId,
-    viewMode,
-    satelliteBand,
-    showStreamlines,
-    showCCTV,
-    showGeofences,
-    imgLoaded,
-  ]);
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(animId);
+    };
+  }, []);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -1603,11 +1997,20 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
     const clickX = (e.clientX - rect.left) * scaleX;
     const clickY = (e.clientY - rect.top) * scaleY;
 
+    const isSuryalanka = beach.presetId === 'SURYALANKA_BAPATLA' || beach.id.includes('SURYALANKA');
+    const isRushikonda = !isSuryalanka;
+    const isSatelliteMode = (viewMode === 'satellite' || viewMode === 'sat_heat') && isRushikonda && !!rushikondaImgRef.current;
+    const tidePixelOffset = (environment.tideLevel - 1.2) * 15;
+    const dynamicShorelineY = beach.shorelineY + tidePixelOffset;
+
     let closest: Visitor | null = null;
     let minDist = 25;
 
     visitors.forEach((v) => {
-      const dist = Math.hypot(v.position.x - clickX, v.position.y - clickY);
+      const pos = isSatelliteMode
+        ? projectToSatellite(v.position, beach.width, beach.height, dynamicShorelineY, beach.width, beach.height, environment.tideLevel)
+        : v.position;
+      const dist = Math.hypot(pos.x - clickX, pos.y - clickY);
       if (dist < minDist) {
         minDist = dist;
         closest = v;
@@ -1698,8 +2101,10 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           </button>
         </div>
 
-        {/* Right: Layer Toggles & Legend */}
+        {/* Right: Sound Controls, Layer Toggles & Legend */}
         <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 shadow-lg backdrop-blur-md pointer-events-auto text-xs">
+          <SoundControlHUD />
+
           <button
             onClick={() => setShowStreamlines(!showStreamlines)}
             className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
