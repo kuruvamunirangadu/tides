@@ -78,7 +78,7 @@ export const SafetyDashboard: React.FC<SafetyDashboardProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-sm text-slate-100 uppercase tracking-wide">
-              Phase 8 — Simulation Analytics & Safety Performance Dashboard
+              Simulation Analytics & Safety Performance Dashboard
             </h3>
             <p className="text-[11px] text-slate-400 font-sans">
               Objective evaluation, latency profiling, causal tracing & experiment comparison

@@ -5,8 +5,16 @@ import { ZoneDensityStats } from '../crowd/DensityCalculator';
 import { IncidentHistory } from './IncidentHistory';
 
 export class IncidentManager {
+  private static instance: IncidentManager | null = null;
   private activeIncidents: Map<string, Incident> = new Map();
   private history: IncidentHistory = new IncidentHistory();
+
+  public static getInstance(): IncidentManager {
+    if (!IncidentManager.instance) {
+      IncidentManager.instance = new IncidentManager();
+    }
+    return IncidentManager.instance;
+  }
 
   public getActiveIncidents(): Incident[] {
     return Array.from(this.activeIncidents.values()).filter((inc) => inc.active);
@@ -69,6 +77,9 @@ export class IncidentManager {
           { ...v.position },
           currentTime
         );
+      } else {
+        // Dynamically update location coordinates as distressed swimmer drifts with currents
+        existing.location = { ...v.position };
       }
     });
 

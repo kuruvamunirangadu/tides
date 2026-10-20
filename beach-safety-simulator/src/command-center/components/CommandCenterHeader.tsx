@@ -25,7 +25,7 @@ export const CommandCenterHeader: React.FC<CommandCenterHeaderProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                PHASE 14 • CENTRAL AUTHORITY PLATFORM
+                CENTRAL AUTHORITY PLATFORM
               </span>
               <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

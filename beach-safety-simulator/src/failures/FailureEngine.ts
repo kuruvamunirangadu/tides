@@ -85,6 +85,26 @@ export class FailureEngine {
     }
   }
 
+  public getGPSErrorMeters(): number {
+    return this.manager.getGPSErrorMeters();
+  }
+
+  public getSensorConflict() {
+    return this.manager.getSensorConflict();
+  }
+
+  public isCameraOffline(): boolean {
+    return !this.manager.isCameraActive();
+  }
+
+  public isWaveSensorOffline(): boolean {
+    return !this.manager.isWaveSensorActive();
+  }
+
+  public isCurrentSensorOffline(): boolean {
+    return !this.manager.isCurrentSensorActive();
+  }
+
   public reset(): void {
     this.manager.clearAllFailures();
     this.totalFailuresInjected = 0;

@@ -136,7 +136,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
           }`}
         >
-          🔥 Phase 7 Failure & Chaos Tests
+          🔥 Failure & Chaos Tests
         </button>
         <button
           onClick={() => setActiveTab('emergency_scenarios')}
@@ -146,7 +146,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
           }`}
         >
-          🚨 Phase 6 Emergency Operations
+          🚨 Emergency Operations
         </button>
         <button
           onClick={() => setActiveTab('decision_scenarios')}
@@ -156,7 +156,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
           }`}
         >
-          🤖 Phase 5 Decision Policies
+          🤖 Decision Policies
         </button>
         <button
           onClick={() => setActiveTab('validation')}

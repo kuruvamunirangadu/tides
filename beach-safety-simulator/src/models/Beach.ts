@@ -15,6 +15,7 @@ import { EmergencyResource } from '../emergency/models/EmergencyResource';
 import { BoardDisplayState } from '../emergency/communication/WarningBoardManager';
 import { PerformanceAnalytics, ResponseMetrics } from '../emergency/models/ResponseMetrics';
 import { FailureEvent } from '../failures/types/FailureTypes';
+import { SensorConflict } from '../failures/sensors/SensorReading';
 import { FallbackStrategy } from '../failures/fallback/FallbackEngine';
 import { ResilienceDimensions } from '../failures/metrics/ResilienceMetrics';
 import { ScenarioReport } from '../failures/scenarios/ScenarioRunner';
@@ -81,6 +82,8 @@ export interface SimulationState {
   fallbackStrategy: FallbackStrategy;
   resilience: ResilienceDimensions;
   isNightMode: boolean;
+  sensorConflict?: SensorConflict;
+  gpsErrorMeters?: number;
   scenarioReport?: ScenarioReport;
   // Phase 8 Additions
   metrics?: SimulationMetrics;
@@ -142,6 +145,33 @@ export interface SimulationState {
     tourists: number;
     distressed: number;
     groups: number;
+  };
+  // TIDES Impact Lab Live Bridge
+  impactLab?: ImpactLabSimulationState;
+}
+
+export interface ImpactLabSimulationState {
+  forecastHorizons?: Array<{
+    horizonSeconds: number;
+    horizonLabel: string;
+    predictedVelocity: number;
+    predictedRiskCategory: string;
+    uncertaintyMin: number;
+    uncertaintyMax: number;
+  }>;
+  sensorHealthSummary?: {
+    totalSensors: number;
+    healthyCount: number;
+    staleCount: number;
+    offlineCount: number;
+    degradedCount: number;
+  };
+  activeGoldenWindow?: {
+    incidentId: string;
+    timeToAssistanceSeconds: number | null;
+    isWithinGoldenWindow: boolean;
+    goldenWindowLimitSeconds: number;
+    status: string;
   };
 }
 

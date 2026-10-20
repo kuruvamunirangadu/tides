@@ -364,26 +364,50 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
         ctx.fillText('N', ncx - 3, ncy - 13);
       }
     } else {
-      // --- 1.1 TACTICAL VECTOR OCEAN ---
-        const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
-        oceanGrad.addColorStop(0, '#0a2540');
-        oceanGrad.addColorStop(0.35, '#0e4166');
-        oceanGrad.addColorStop(0.65, '#19769f');
-        oceanGrad.addColorStop(0.82, '#38a3a5');
-        oceanGrad.addColorStop(0.88, '#80ced7');
-        oceanGrad.addColorStop(0.92, '#e9d8a6');
-        oceanGrad.addColorStop(1.0, '#ee9b00');
-        ctx.fillStyle = oceanGrad;
-        ctx.fillRect(0, 0, width, height);
+      // --- 1.1 TACTICAL VECTOR OCEAN & BATHYMETRY ---
+      const oceanGrad = ctx.createLinearGradient(0, 0, 0, shorelineY);
+      oceanGrad.addColorStop(0, '#075985');
+      oceanGrad.addColorStop(0.35, '#0284c7');
+      oceanGrad.addColorStop(0.7, '#0ea5e9');
+      oceanGrad.addColorStop(1.0, '#38bdf8');
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(0, 0, width, shorelineY);
 
-        // --- 1.2 TACTICAL SAND BEACH ---
-        const sandGrad = ctx.createLinearGradient(0, shorelineY, 0, height);
-        sandGrad.addColorStop(0, '#e9d8a6');
-        sandGrad.addColorStop(0.3, '#ee9b00');
-        sandGrad.addColorStop(1, '#ca6702');
-        ctx.fillStyle = sandGrad;
-        ctx.fillRect(0, shorelineY, width, height - shorelineY);
+      // Bathymetric Depth Isobars with Sounding Badges
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      const isobaths = [
+        { y: shorelineY * 0.25, label: '-5.0m OUTER SHELF' },
+        { y: shorelineY * 0.55, label: '-3.0m CONTOUR' },
+        { y: shorelineY * 0.85, label: '-1.5m ISOBATH' },
+      ];
+      for (const iso of isobaths) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.moveTo(0, iso.y);
+        for (let x = 0; x <= width; x += 30) {
+          ctx.lineTo(x, iso.y + Math.sin(x * 0.02) * 2.5);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.85)';
+        ctx.fillRect(width - 130, iso.y - 7, 85, 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText(iso.label, width - 126, iso.y + 2);
       }
+      ctx.restore();
+
+      // --- 1.2 TACTICAL GOLDEN SAND BEACH & DUNES ---
+      const sandGrad = ctx.createLinearGradient(0, shorelineY, 0, height);
+      sandGrad.addColorStop(0, '#be9455');
+      sandGrad.addColorStop(0.15, '#e0b574');
+      sandGrad.addColorStop(0.5, '#f5d6a0');
+      sandGrad.addColorStop(1.0, '#fef6e2');
+      ctx.fillStyle = sandGrad;
+      ctx.fillRect(0, shorelineY, width, height - shorelineY);
+    }
 
       // Shoreline Wet Sand / Swash Foam Line (Both modes)
       ctx.beginPath();
@@ -434,7 +458,58 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({ state, onSelectVisitor
           ctx.beginPath();
           ctx.arc(cx, cy, rad, 0, Math.PI * 2);
           ctx.fill();
+
+          // Concentric hazard isobars
+          if (score >= 40) {
+            const ringCount = score >= 75 ? 3 : 2;
+            for (let r = 1; r <= ringCount; r++) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, rad * (0.35 + r * 0.22), 0, Math.PI * 2);
+              ctx.strokeStyle = score >= 75 ? `rgba(239, 68, 68, ${0.45 - r * 0.1})` : `rgba(245, 158, 11, ${0.35 - r * 0.1})`;
+              ctx.lineWidth = 1.2;
+              ctx.setLineDash([4, 4]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
+
+            // Zone tactical score badge
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fillRect(cx - 35, cy - 8, 70, 16);
+            ctx.strokeStyle = score >= 75 ? '#ef4444' : '#f59e0b';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx - 35, cy - 8, 70, 16);
+            ctx.fillStyle = score >= 75 ? '#fca5a5' : '#fde68a';
+            ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${z.name}: ${score}`, cx, cy + 3);
+            ctx.textAlign = 'left';
+          }
         });
+
+        // Calibrated Risk Heat Index Scale
+        const scaleW = 140;
+        const scaleH = 24;
+        const scaleXPos = width - scaleW - 15;
+        const scaleYPos = height - scaleH - 15;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(scaleXPos, scaleYPos, scaleW, scaleH);
+        ctx.strokeStyle = '#334155';
+        ctx.strokeRect(scaleXPos, scaleYPos, scaleW, scaleH);
+
+        const bGrad = ctx.createLinearGradient(scaleXPos + 6, 0, scaleXPos + scaleW - 6, 0);
+        bGrad.addColorStop(0, '#22c55e');
+        bGrad.addColorStop(0.35, '#eab308');
+        bGrad.addColorStop(0.7, '#f97316');
+        bGrad.addColorStop(1, '#ef4444');
+        ctx.fillStyle = bGrad;
+        ctx.fillRect(scaleXPos + 6, scaleYPos + 4, scaleW - 12, 6);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 7px monospace';
+        ctx.fillText('0', scaleXPos + 6, scaleYPos + 18);
+        ctx.fillText('50', scaleXPos + scaleW / 2 - 5, scaleYPos + 18);
+        ctx.fillText('100', scaleXPos + scaleW - 22, scaleYPos + 18);
+
         ctx.restore();
       }
 

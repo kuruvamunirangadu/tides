@@ -14,15 +14,21 @@ export class ObjectTracker {
 
     for (const [cameraId, detections] of cameraDetectionsMap.entries()) {
       for (const det of detections) {
-        // Associate by ground truth visitor ID or proximity match
+        // Associate by spatial proximity or ground truth reference
         let track = Array.from(this.activeTracks.values()).find(
-          (t) => t.groundTruthVisitorId === det.groundTruthVisitorId && t.active
+          (t) =>
+            !matchedTrackIds.has(t.trackId) &&
+            t.cameraId === cameraId &&
+            t.active &&
+            t.state !== 'EXPIRED' &&
+            (t.groundTruthVisitorId === det.groundTruthVisitorId ||
+              this.getDistance(t.positions[t.positions.length - 1], det.worldPosition) < 20.0)
         );
 
         if (track) {
           // Update existing track
           const prevPos = track.positions[track.positions.length - 1] || det.worldPosition;
-          const dt = Math.max(0.1, simTime - track.lastSeen);
+          const dt = Math.max(0.05, simTime - track.lastSeen);
           const vx = (det.worldPosition.x - prevPos.x) / dt;
           const vy = (det.worldPosition.y - prevPos.y) / dt;
           const speed = Math.sqrt(vx * vx + vy * vy);
@@ -39,13 +45,21 @@ export class ObjectTracker {
           track.velocity = { x: vx, y: vy };
           track.speed = Number(speed.toFixed(2));
           track.direction = Math.round(direction);
-          track.confidence = det.confidence;
+          track.confidence = Number(((track.confidence * 0.7) + (det.confidence * 0.3)).toFixed(2));
           track.framesTracked += 1;
+          track.hits += 1;
+          track.misses = 0;
           det.trackId = track.trackId;
+
+          // Promote to CONFIRMED after 2 consecutive frames
+          if (track.hits >= 2 && track.state === 'TENTATIVE') {
+            track.state = 'CONFIRMED';
+          }
+
           matchedTrackIds.add(track.trackId);
         } else {
           // Initialize new track
-          const trackId = `TRACK-${this.nextTrackNumericId++}`;
+          const trackId = `TRACK-${cameraId}-${this.nextTrackNumericId++}`;
           const newTrack: PersonTrack = {
             trackId,
             cameraId,
@@ -59,6 +73,10 @@ export class ObjectTracker {
             direction: 0,
             confidence: det.confidence,
             active: true,
+            state: 'TENTATIVE',
+            hits: 1,
+            misses: 0,
+            provenance: det.provenance || 'SIMULATED',
             framesTracked: 1,
             driftingObserved: false,
             distressSuspected: false,
@@ -72,16 +90,22 @@ export class ObjectTracker {
       }
     }
 
-    // Deactivate stale tracks not matched in the last 4 seconds
+    // Handle missed observations and expiration
     for (const [trackId, track] of this.activeTracks.entries()) {
       if (!matchedTrackIds.has(trackId)) {
-        if (simTime - track.lastSeen > 4.0) {
+        track.misses += 1;
+        const timeSinceLastSeen = simTime - track.lastSeen;
+
+        if (timeSinceLastSeen > 4.0) {
+          track.state = 'EXPIRED';
           track.active = false;
+        } else {
+          track.state = 'LOST';
         }
       }
     }
 
-    // Clean up completely old inactive tracks
+    // Purge completely old inactive tracks (> 15 seconds)
     for (const [trackId, track] of this.activeTracks.entries()) {
       if (!track.active && simTime - track.lastSeen > 15.0) {
         this.activeTracks.delete(trackId);
@@ -91,8 +115,17 @@ export class ObjectTracker {
     return Array.from(this.activeTracks.values());
   }
 
+  private getDistance(p1?: { x: number; y: number }, p2?: { x: number; y: number }): number {
+    if (!p1 || !p2) return Infinity;
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   public getActiveTracks(): PersonTrack[] {
-    return Array.from(this.activeTracks.values()).filter((t) => t.active);
+    return Array.from(this.activeTracks.values()).filter(
+      (t) => t.active && (t.state === 'CONFIRMED' || t.state === 'TENTATIVE')
+    );
   }
 
   public getTrack(trackId: string): PersonTrack | undefined {

@@ -38,3 +38,7 @@ yarn-error.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+# Temporary scratch assets
+scratch_*.png
+

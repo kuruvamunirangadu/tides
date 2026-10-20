@@ -49,6 +49,8 @@ export class PersonDetector {
               groundTruthVisitorId: visitor.id,
               worldPosition: { ...visitor.position },
               inWater: visitor.position.y >= 260,
+              provenance: 'SIMULATED',
+              isValid: true,
             });
           }
         }

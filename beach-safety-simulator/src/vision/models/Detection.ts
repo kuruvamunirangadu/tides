@@ -5,6 +5,8 @@ export interface BoundingBox {
   height: number;
 }
 
+export type DetectionProvenance = 'SIMULATED' | 'ACTUAL';
+
 export interface DetectedPerson {
   id: string;
   trackId?: string;
@@ -16,4 +18,7 @@ export interface DetectedPerson {
   groundTruthVisitorId: string;
   worldPosition: { x: number; y: number };
   inWater: boolean;
+  provenance?: DetectionProvenance;
+  isValid?: boolean;
+  rejectionReason?: string;
 }

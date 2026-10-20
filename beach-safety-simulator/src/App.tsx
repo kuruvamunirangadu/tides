@@ -6,8 +6,6 @@ import { EnvironmentPanel } from './components/EnvironmentPanel';
 import { VisitorPanel } from './components/VisitorPanel';
 import { HazardPanel } from './components/HazardPanel';
 import { RiskPanel } from './components/RiskPanel';
-import { DecisionPanel } from './components/DecisionPanel';
-import { EmergencyPanel } from './components/EmergencyPanel';
 import { FailureLab } from './components/FailureLab';
 import { VisitorDetails } from './components/VisitorDetails';
 import { SimulationControls } from './components/SimulationControls';
@@ -21,6 +19,12 @@ import { CommandCenter } from './command-center/components/CommandCenter';
 import { ExperimentControlLab } from './components/ExperimentControlLab';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { LifeguardTerminal } from './components/LifeguardTerminal';
+import { ImpactLabDashboard } from './impact-lab/ImpactLabDashboard';
+import { ImpactLabHUD } from './impact-lab/components/ImpactLabHUD';
+import { LiveIncidentStrip } from './components/LiveIncidentStrip';
+import { LeftPhaseOptionsPanel } from './components/layout/LeftPhaseOptionsPanel';
+import { RightAIEngineControlPanel } from './components/layout/RightAIEngineControlPanel';
+import { WristbandOperationsHUD } from './wristbands/components/WristbandOperationsHUD';
 import { Visitor } from './models/Visitor';
 import {
   CheckCircle2,
@@ -110,7 +114,7 @@ export const App: React.FC = () => {
   } = useSimulation();
 
   const [activeMainView, setActiveMainView] = useState<
-    'simulation' | 'lifeguard' | 'experiment' | 'performance' | 'command' | 'gis' | 'vision' | 'prediction' | 'iot' | 'drones' | 'analytics'
+    'simulation' | 'impact' | 'lifeguard' | 'experiment' | 'performance' | 'command' | 'gis' | 'vision' | 'prediction' | 'iot' | 'drones' | 'analytics' | 'wristband'
   >('simulation');
   const [mobileSubTab, setMobileSubTab] = useState<'canvas' | 'emergency' | 'decisions' | 'failures' | 'analytics_all'>('canvas');
   const [showMobileViewDrawer, setShowMobileViewDrawer] = useState<boolean>(false);
@@ -139,14 +143,125 @@ export const App: React.FC = () => {
   };
 
   const navTabs = [
-    { id: 'simulation', label: 'LIVE SIMULATION', icon: MapPin, color: 'text-cyan-400', badge: null },
+    {
+      id: 'simulation',
+      label: 'LIVE SIMULATION',
+      icon: MapPin,
+      color: 'text-cyan-400',
+      badge: '3D TWIN',
+      badgeColor: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+      desc: '3D coastal digital twin with bathymetry & wave physics',
+    },
+    {
+      id: 'performance',
+      label: 'CACHE & PERFORMANCE',
+      icon: Cpu,
+      color: 'text-emerald-400',
+      badge: state.performanceMetrics ? `${state.performanceMetrics.fps} FPS` : '60 FPS',
+      badgeColor: 'bg-emerald-500 text-slate-950 font-bold',
+      desc: 'System memory, cache benchmark & render pipeline stats',
+    },
+    {
+      id: 'command',
+      label: 'COMMAND CENTER',
+      icon: Shield,
+      color: 'text-blue-400',
+      badge:
+        state.multiBeachCommandState && state.multiBeachCommandState.criticalBeachesCount > 0
+          ? `${state.multiBeachCommandState.criticalBeachesCount} CRITICAL`
+          : 'ONLINE',
+      badgeColor:
+        state.multiBeachCommandState && state.multiBeachCommandState.criticalBeachesCount > 0
+          ? 'bg-rose-500 text-white font-bold'
+          : 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+      desc: 'Multi-beach coastal operations & Andhra Pradesh mutual aid',
+    },
+    {
+      id: 'gis',
+      label: 'GIS GEOFENCE',
+      icon: Globe,
+      color: 'text-teal-400',
+      badge: state.gisBreachEvents && state.gisBreachEvents.length > 0 ? `${state.gisBreachEvents.length} BREACH` : 'ZONES',
+      badgeColor:
+        state.gisBreachEvents && state.gisBreachEvents.length > 0
+          ? 'bg-rose-500 text-white font-bold'
+          : 'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+      desc: 'Coastal safety boundaries & danger geofence breach alarms',
+    },
+    {
+      id: 'vision',
+      label: 'CCTV VISION',
+      icon: CameraIcon,
+      color: 'text-emerald-400',
+      badge: state.cctvSafetyEvents && state.cctvSafetyEvents.length > 0 ? `${state.cctvSafetyEvents.length} EVENTS` : 'YOLOv8',
+      badgeColor:
+        state.cctvSafetyEvents && state.cctvSafetyEvents.length > 0
+          ? 'bg-amber-500 text-slate-950 font-bold'
+          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+      desc: 'Edge CV cameras, swimmer bounding boxes & tracking',
+    },
+    {
+      id: 'prediction',
+      label: 'AI PREDICT',
+      icon: TrendingUp,
+      color: 'text-indigo-400',
+      badge:
+        state.predictionState?.alerts && state.predictionState.alerts.length > 0
+          ? `${state.predictionState.alerts.length} ALERTS`
+          : 'T+15..120m',
+      badgeColor:
+        state.predictionState?.alerts && state.predictionState.alerts.length > 0
+          ? 'bg-amber-500 text-slate-950 font-bold'
+          : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
+      desc: 'Spatial & temporal machine learning risk forecasting',
+    },
+    {
+      id: 'iot',
+      label: 'IoT SENSORS',
+      icon: Radio,
+      color: 'text-amber-400',
+      badge: state.iotDataSourceMode || 'HYBRID',
+      badgeColor: 'bg-slate-800 text-amber-300 border border-amber-500/30',
+      desc: 'Acoustic wave buoys, weather stations & telemetry',
+    },
+    {
+      id: 'drones',
+      label: 'DRONES',
+      icon: Plane,
+      color: 'text-orange-400',
+      badge:
+        state.drones && state.drones.some((d) => d.status !== 'AVAILABLE' && d.status !== 'CHARGING')
+          ? 'AIRBORNE'
+          : 'READY',
+      badgeColor: 'bg-cyan-400 text-slate-950 font-bold',
+      desc: 'Autonomous SAR drone swarm, buoy drop & AI verification',
+    },
+    {
+      id: 'analytics',
+      label: 'ANALYTICS',
+      icon: BarChart3,
+      color: 'text-purple-400',
+      badge: 'REPLAY',
+      badgeColor: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+      desc: 'Response metrics, benchmarks & incident mission replay',
+    },
     {
       id: 'lifeguard',
-      label: '🛟 LIFEGUARD TERMINAL',
+      label: 'LIFEGUARD TERMINAL',
       icon: LifeBuoy,
       color: 'text-amber-400',
       badge: 'PATROL HUD',
       badgeColor: 'bg-amber-500 text-slate-950 font-bold',
+      desc: 'Handheld beach patrol terminal & station coordination',
+    },
+    {
+      id: 'impact',
+      label: 'IMPACT LAB (3 DEMOS)',
+      icon: Activity,
+      color: 'text-violet-400',
+      badge: 'EVALUATION',
+      badgeColor: 'bg-violet-600 text-white font-bold',
+      desc: 'Controlled field pilot validation & hardware bench evaluation',
     },
     {
       id: 'experiment',
@@ -157,72 +272,28 @@ export const App: React.FC = () => {
         ? 'MANUAL ACTIVE'
         : state.safetyInterventionsActive === false
         ? 'PASSIVE SYSTEM'
-        : null,
-      badgeColor: state.safetyInterventionsActive === false ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-rose-500 text-white font-bold',
+        : 'AUTOMATIC',
+      badgeColor:
+        state.safetyInterventionsActive === false
+          ? 'bg-amber-500 text-slate-950 font-bold'
+          : 'bg-rose-500 text-white font-bold',
+      desc: 'Manual environmental stress lab & hazard consequence triggers',
     },
     {
-      id: 'performance',
-      label: 'CACHE & PERFORMANCE',
-      icon: Cpu,
-      color: 'text-emerald-400',
-      badge: state.performanceMetrics ? `${state.performanceMetrics.fps} FPS` : null,
-      badgeColor: 'bg-emerald-500 text-slate-950 font-bold',
-    },
-    {
-      id: 'command',
-      label: 'PHASE 14 COMMAND CENTER',
-      icon: Shield,
-      color: 'text-blue-400',
-      badge: state.multiBeachCommandState && state.multiBeachCommandState.criticalBeachesCount > 0
-        ? `${state.multiBeachCommandState.criticalBeachesCount} CRITICAL`
-        : null,
-      badgeColor: 'bg-rose-500 text-white',
-    },
-    {
-      id: 'gis',
-      label: 'PHASE 11 GIS GEOFENCE',
-      icon: Globe,
-      color: 'text-teal-400',
-      badge: state.gisBreachEvents && state.gisBreachEvents.length > 0 ? `${state.gisBreachEvents.length}` : null,
-      badgeColor: 'bg-rose-500 text-white',
-    },
-    {
-      id: 'vision',
-      label: 'PHASE 9 CCTV VISION',
-      icon: CameraIcon,
-      color: 'text-emerald-400',
-      badge: state.cctvSafetyEvents && state.cctvSafetyEvents.length > 0 ? `${state.cctvSafetyEvents.length}` : null,
-      badgeColor: 'bg-rose-500 text-white',
-    },
-    {
-      id: 'prediction',
-      label: 'PHASE 10 AI PREDICT',
-      icon: TrendingUp,
-      color: 'text-indigo-400',
-      badge: state.predictionState?.alerts && state.predictionState.alerts.length > 0 ? `${state.predictionState.alerts.length}` : null,
-      badgeColor: 'bg-amber-500 text-slate-950 font-bold',
-    },
-    {
-      id: 'iot',
-      label: 'PHASE 12 IoT SENSORS',
+      id: 'wristband',
+      label: 'WRISTBAND SAFETY HUB',
       icon: Radio,
-      color: 'text-amber-400',
-      badge: state.iotDataSourceMode || 'HYBRID',
-      badgeColor: 'bg-slate-800 text-amber-300 border border-amber-500/30',
+      color: 'text-rose-400',
+      badge: 'LORA 865',
+      badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+      desc: 'Hardware wearable simulator, SOS triggers, downlinks & 8-band fleet',
     },
-    {
-      id: 'drones',
-      label: 'PHASE 13 DRONES',
-      icon: Plane,
-      color: 'text-orange-400',
-      badge: state.drones && state.drones.some((d) => d.status !== 'AVAILABLE' && d.status !== 'CHARGING') ? 'AIRBORNE' : null,
-      badgeColor: 'bg-cyan-400 text-slate-950 font-bold',
-    },
-    { id: 'analytics', label: 'PHASE 8 ANALYTICS', icon: BarChart3, color: 'text-purple-400', badge: null },
-  ] as const;
+  ];
+
+  const currentActiveTab = navTabs.find((t) => t.id === activeMainView) || navTabs[0];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-2 sm:p-4 md:p-5 flex flex-col justify-between space-y-3 sm:space-y-4 max-w-[1600px] mx-auto pb-24 sm:pb-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-2 sm:p-2.5 flex flex-col space-y-2.5 max-w-[1920px] w-full mx-auto pb-12">
       {/* 1. Header Bar */}
       <SimulationHeader
         timeDisplay={state.timeDisplay}
@@ -231,124 +302,195 @@ export const App: React.FC = () => {
         activeLevel={state.fallbackStrategy?.activeLevel || 'FULL_CAPABILITY'}
       />
 
-      {/* Main Navigation Tab Bar: Responsive Scrollable Pills + Mobile Quick View */}
-      <div className="flex items-center justify-between gap-2 bg-slate-900/95 p-1.5 rounded-xl border border-slate-800 shadow-md backdrop-blur-md">
-        {/* Horizontal Scrollable Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap py-0.5 px-0.5 w-full lg:w-auto">
-          {navTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeMainView === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveMainView(tab.id as any)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-[0.97] ${
-                  isActive
-                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/25 ring-1 ring-cyan-400'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isActive ? 'text-slate-950' : tab.color}`} />
-                <span className="text-[11px] sm:text-xs tracking-wide">{tab.label}</span>
-                {tab.badge && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono animate-pulse ${tab.badgeColor}`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Sleek Operational Top Strip (Zero Horizontal Scrollbar) */}
+      <div className="flex items-center justify-between gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 shadow-md backdrop-blur-md text-xs">
+        {/* Active View Indicator & Quick Return */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase font-mono text-slate-400 font-bold tracking-wider">
+            Active View:
+          </span>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-[11px] shadow-sm">
+            {React.createElement(currentActiveTab.icon, { className: `w-3.5 h-3.5 ${currentActiveTab.color}` })}
+            <span>{currentActiveTab.label}</span>
+            {currentActiveTab.badge && (
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono ${currentActiveTab.badgeColor}`}>
+                {currentActiveTab.badge}
+              </span>
+            )}
+          </div>
+          {activeMainView !== 'simulation' && (
+            <button
+              onClick={() => setActiveMainView('simulation')}
+              className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer ml-1.5 flex items-center gap-1 transition"
+            >
+              &larr; Return to 3D Simulation
+            </button>
+          )}
         </div>
 
-        {/* Desktop Quick Indicator */}
-        <div className="hidden xl:flex items-center gap-2 text-xs font-mono text-slate-400 pr-2 shrink-0">
-          <span>
+        {/* Coastal Jurisdiction & Unified Layout Metrics */}
+        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
+          <span className="hidden sm:inline">
+            Coast: <strong className="text-slate-200">{state.beach.name}</strong>
+          </span>
+          <span className="hidden md:inline text-slate-700">|</span>
+          <span className="hidden md:inline">
             Resilience: <strong className="text-emerald-400">{state.resilience?.overallResilienceIndex || 100}%</strong>
           </span>
-          <span>|</span>
-          <span>
-            Mode: <strong className="text-cyan-300">{state.fallbackStrategy?.activeLevel || 'FULL'}</strong>
+          <span className="hidden lg:inline text-slate-700">|</span>
+          <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-300 border border-slate-700 font-bold">
+            Layout: <strong>Options | 3D Twin | Engines</strong>
           </span>
         </div>
       </div>
 
-      {/* View Mode 1: Live Beach Simulation Stage */}
-      {activeMainView === 'simulation' && (
-        <main className="flex flex-col space-y-3 sm:space-y-4">
-          {/* Mobile Sub-View Tab Switcher (Visible on < lg screens) */}
-          <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
-            <button
-              onClick={() => setMobileSubTab('canvas')}
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all cursor-pointer ${
-                mobileSubTab === 'canvas'
-                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              🗺️ Beach Canvas
-            </button>
-            <button
-              onClick={() => setMobileSubTab('emergency')}
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all cursor-pointer ${
-                mobileSubTab === 'emergency'
-                  ? 'bg-rose-500 text-white shadow-sm'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              🚨 Emergency Ops ({state.emergencyIncidents.length})
-            </button>
-            <button
-              onClick={() => setMobileSubTab('decisions')}
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all cursor-pointer ${
-                mobileSubTab === 'decisions'
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              🤖 Decisions ({state.decisions?.length || 0})
-            </button>
-            <button
-              onClick={() => setMobileSubTab('failures')}
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all cursor-pointer ${
-                mobileSubTab === 'failures'
-                  ? 'bg-purple-500 text-white shadow-sm'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              🔥 Failure Lab ({state.activeFailures?.length || 0})
-            </button>
-            <button
-              onClick={() => setMobileSubTab('analytics_all')}
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all cursor-pointer ${
-                mobileSubTab === 'analytics_all'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              📑 All Telemetry Panels
-            </button>
+      {/* 3-GRID BALANCED LAYOUT: Guaranteed readable panels with expansive 3D center stage */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,18%)_1fr_minmax(350px,25%)] gap-2.5 items-stretch">
+        {/* GRID 1: 15% Options, Simulations Dropdown, Phases 1-10 & Presets */}
+        <div className="w-full min-h-[640px]">
+          <LeftPhaseOptionsPanel
+            activeMainView={activeMainView}
+            onSelectView={setActiveMainView}
+            navTabs={navTabs as any}
+            selectedBeachPreset={state.beach.presetId || 'RUSHIKONDA_VIZAG'}
+            onSelectBeachPreset={setBeachPreset}
+            running={state.running}
+            speed={state.speed}
+            onStart={start}
+            onPause={pause}
+            onReset={reset}
+            onSetSpeed={setSpeed}
+            onScenarioCompoundCrisis={scenarioPhase7CompoundCrisis}
+            onScenarioRipCurrent={() => injectHazardScenario('RIP_CURRENT')}
+            onScenarioHighWaves={() => injectHazardScenario('HIGH_WAVES')}
+            onScenarioBoatRescue={scenarioPhase6DeepWaterBoatRescue}
+            onScenarioResourceExhaustion={scenarioPhase6ResourceExhaustion}
+            onScenarioSwimmerRescue={scenarioPhase6SwimmerRescue}
+            onScenarioSensorConflict={scenarioPhase7SensorConflict}
+            onScenarioGPSDrift={scenarioPhase7GPSDrift}
+            onScenarioCommBlackout={scenarioPhase7CommBlackout}
+            onTriggerChaosMonkey={triggerChaosMonkey}
+            emergencyIncidentsCount={state.emergencyIncidents.length}
+            resilienceScore={state.resilience?.overallResilienceIndex || 100}
+          />
+        </div>
+
+        {/* GRID 2: 70% Main Presentation Simulation Stage (Mainly 3D Digital Twin) */}
+        <div className="w-full flex flex-col space-y-2 min-h-[640px]">
+          {/* Universal Simulation Flight Strip: Always visible at top of Grid 2 */}
+          <div className="shrink-0 flex items-center justify-between gap-2 bg-slate-900/95 px-3 py-1.5 rounded-xl border border-slate-800 shadow-md backdrop-blur-md text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 min-w-0">
+              <span className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider mr-1 shrink-0">
+                Simulations:
+              </span>
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'simulation'
+                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>🌴</span>
+                <span>3D Beach Twin</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('impact')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'impact'
+                    ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>🧪</span>
+                <span>Impact Lab</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('experiment')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'experiment'
+                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>🔬</span>
+                <span>Risk Lab</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('wristband')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'wristband'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>⌚</span>
+                <span>Wristband Hub</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('drones')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'drones'
+                    ? 'bg-orange-500 text-slate-950 shadow-md shadow-orange-500/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>🚁</span>
+                <span>Drones</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('command')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'command'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>🏛️</span>
+                <span>Command</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMainView('vision')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeMainView === 'vision'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                }`}
+              >
+                <span>👁️</span>
+                <span>Vision</span>
+              </button>
+            </div>
+
+            {activeMainView !== 'simulation' && (
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+              >
+                <span>🌴</span>
+                <span>Return to 3D Simulation</span>
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
-            {/* Left Column (8 cols on desktop, responsive on mobile): Beach Canvas + Emergency Operations & Decision Panels */}
-            <div className={`lg:col-span-8 flex flex-col space-y-3 sm:space-y-4 ${
-              mobileSubTab === 'canvas' || mobileSubTab === 'analytics_all' || window.innerWidth >= 1024 ? 'block' : 'hidden lg:flex'
-            }`}>
-              <div className="relative">
-                <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 px-1 mb-1.5 gap-2">
-                  <span className="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 text-[11px] sm:text-xs">
-                    🗺️ Digital Beach Simulation ({state.beach.width}m × {state.beach.height}m)
-                    {state.isNightMode && (
-                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] border border-indigo-500/40 font-mono">
-                        🌙 NIGHT OPS
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-[10px] sm:text-[11px] text-cyan-400 font-semibold">
-                    Phases 1–8 Real-Time Operational Loop Active
-                  </span>
-                </div>
+          {activeMainView === 'simulation' ? (
+            <div className="flex flex-col space-y-2 w-full">
+              {/* Operational Top Strip */}
+              <LiveIncidentStrip
+                incidents={state.emergencyIncidents}
+                impactLab={state.impactLab}
+                onOpenDemo={() => setActiveMainView('impact')}
+                onOpenWristbands={() => setActiveMainView('wristband')}
+              />
 
+              {/* 3D Beach Digital Twin & Multi-Layer Coastal Simulation Stage */}
+              <div className="relative w-full min-h-[620px] bg-slate-900/60 rounded-xl border border-slate-800/80 overflow-hidden shadow-2xl">
                 <BeachCanvas
                   beach={state.beach}
                   environment={state.environment}
@@ -359,15 +501,17 @@ export const App: React.FC = () => {
                   emergencyResources={state.emergencyResources}
                   boardStates={state.boardStates}
                   activeFailures={state.activeFailures}
+                  sensorConflict={state.sensorConflict}
                   isNightMode={state.isNightMode}
                   selectedVisitorId={state.selectedVisitorId}
                   cameras={state.cameras}
                   drones={state.drones}
                   droneCoverages={state.droneCoverages}
+                  impactLab={state.impactLab}
+                  defaultViewMode="beach3d"
                   onSelectVisitor={handleSelectVisitorFromCanvas}
                 />
 
-                {/* Selected Visitor Inspector Modal */}
                 <VisitorDetails
                   visitor={selectedVisitor}
                   onClose={() => {
@@ -377,67 +521,263 @@ export const App: React.FC = () => {
                   onSendWarning={sendWarningToVisitor}
                 />
               </div>
-
-              {/* Emergency Operations Tracker + Decision Directives */}
-              <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 ${
-                mobileSubTab === 'emergency' || mobileSubTab === 'decisions' || mobileSubTab === 'analytics_all' || window.innerWidth >= 1024 ? 'grid' : 'hidden lg:grid'
-              }`}>
-                <EmergencyPanel
-                  incidents={state.emergencyIncidents}
-                  resources={state.emergencyResources}
-                  boardStates={state.boardStates}
-                  analytics={state.analytics}
-                  recentMetrics={state.recentMetrics}
-                />
-                <DecisionPanel
-                  decisions={state.decisions}
-                  actions={state.actions}
-                  resourceState={state.resourceState}
-                  historyLogs={state.decisionLogs}
-                />
-              </div>
             </div>
-
-            {/* Right Column (4 cols on desktop, conditionally displayed on mobile): Failure Lab + Risk + Hazard + Demographics */}
-            <div className={`lg:col-span-4 flex flex-col gap-3 ${
-              mobileSubTab === 'failures' || mobileSubTab === 'analytics_all' || window.innerWidth >= 1024 ? 'flex' : 'hidden lg:flex'
-            }`}>
-              {/* Phase 7 Failure & Resilience Injection Lab */}
-              <FailureLab
-                activeFailures={state.activeFailures}
-                fallbackStrategy={state.fallbackStrategy}
-                resilience={state.resilience}
-                onInjectFailure={injectFailure}
-                onRemoveFailure={removeFailure}
-                onClearAllFailures={clearAllFailures}
-                onTriggerChaosMonkey={triggerChaosMonkey}
+          ) : activeMainView === 'impact' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <ImpactLabDashboard
+                onTriggerRipScenario={() => injectHazardScenario('RIP_CURRENT')}
+                onTriggerRescueScenario={() => scenarioPhase6SwimmerRescue()}
               />
-
-              {/* Phase 3: Operational Risk Assessment Panel */}
-              <RiskPanel riskOverview={state.riskOverview} />
-
-              {/* Phase 2: Hazard Detection Engine Live Feed */}
-              <HazardPanel hazards={state.hazards} />
-
-              {/* Phase 4: Visitor Demographics & Crowd Dynamics */}
-              <VisitorPanel stats={state.visitorStats} visitors={state.visitors} />
-
-              {/* Environmental Telemetry */}
-              <EnvironmentPanel environment={state.environment} />
             </div>
-          </div>
-        </main>
-      )}
+          ) : activeMainView === 'lifeguard' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <LifeguardTerminal
+                beach={state.beach}
+                environment={state.environment}
+                visitors={state.visitors}
+                drones={state.drones || []}
+                selectedPreset={state.beach.presetId || 'RUSHIKONDA_VIZAG'}
+                onTriggerSOS={() => {
+                  const distressed = state.visitors.find((v) => v.state === 'DISTRESS' || v.state === 'STRUGGLING');
+                  if (distressed) {
+                    dispatchDroneDistressVerification(distressed.id, distressed.position);
+                  } else if (state.drones && state.drones.length > 0) {
+                    dispatchDronePatrol(state.drones[0].id, 'PATROL-ALPHA');
+                  }
+                }}
+                onDeployDrone={() => {
+                  if (state.drones && state.drones.length > 0) {
+                    dispatchDronePatrol(state.drones[0].id, 'PATROL-ALPHA');
+                  }
+                }}
+              />
+            </div>
+          ) : activeMainView === 'experiment' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <ExperimentControlLab
+                environment={state.environment}
+                riskOverview={state.riskOverview}
+                riskHistory={state.riskHistory || []}
+                selectedBeachPreset={state.beach.presetId || 'RUSHIKONDA_VIZAG'}
+                onSelectBeachPreset={setBeachPreset}
+                safetyInterventionsActive={state.safetyInterventionsActive !== false}
+                isManualEnvironmentActive={state.isManualEnvironmentActive || false}
+                totalVisitors={state.visitors.length}
+                activeSwimmersCount={
+                  state.visitors.filter(
+                    (v) => v.state === 'SWIMMING' || v.state === 'DISTRESS' || v.state === 'DRIFTING' || v.state === 'STRUGGLING'
+                  ).length
+                }
+                running={state.running}
+                onStart={start}
+                onPause={pause}
+                onReset={reset}
+                onSetManualEnvironment={setManualEnvironment}
+                onResetManualEnvironment={resetManualEnvironment}
+                onSetVisitorPopulation={setVisitorPopulation}
+                onSetSafetyInterventionsActive={setSafetyInterventionsActive}
+                onInjectHazardScenario={injectHazardScenario}
+                onRunRiskProgression={runRiskProgression}
+              />
+            </div>
+          ) : activeMainView === 'performance' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <PerformanceMonitor
+                cacheStats={state.cacheStats}
+                performanceMetrics={state.performanceMetrics}
+                totalVisitors={state.visitors.length}
+                onClearCache={clearCache}
+                onRunBenchmark={runPerformanceBenchmark}
+              />
+            </div>
+          ) : activeMainView === 'command' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              {commandCenterManager ? (
+                <CommandCenter
+                  commandManager={commandCenterManager}
+                  emergencyIncidents={state.emergencyIncidents}
+                  emergencyResources={state.emergencyResources}
+                  drones={state.drones || []}
+                  onRunMultiBeachCrisis={scenarioPhase14MultiBeachCrisis}
+                />
+              ) : (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  Initializing Coastal Multi-Beach Command Center...
+                </div>
+              )}
+            </div>
+          ) : activeMainView === 'gis' && gisManager ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <GISCommandCenter gisManager={gisManager} simulationState={state} />
+            </div>
+          ) : activeMainView === 'vision' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <VisionPanel
+                cameras={state.cameras || []}
+                detections={state.visitors.map((v) => ({
+                  id: `det-${v.id}`,
+                  trackId: v.id,
+                  bbox: { x: v.position.x - 10, y: v.position.y - 15, width: 20, height: 30 },
+                  confidence: 0.92,
+                  className: 'PERSON' as const,
+                  cameraId: state.cameras?.[0]?.id || 'CAM-01',
+                  timestamp: state.time,
+                  groundTruthVisitorId: v.id,
+                  worldPosition: v.position,
+                  inWater: v.position.y >= state.beach.shorelineY,
+                }))}
+                safetyEvents={state.cctvSafetyEvents || []}
+                metrics={state.visionMetrics || {
+                  totalPeopleInBeach: state.visitors.length,
+                  peopleInCameraCoverage: Math.round(state.visitors.length * 0.8),
+                  peopleInBlindZones: Math.round(state.visitors.length * 0.2),
+                  coveragePercentage: 80,
+                  activeCameraCount: 4,
+                  offlineCameraCount: 0,
+                  truePositives: Math.round(state.visitors.length * 0.75),
+                  falsePositives: 1,
+                  falseNegatives: 2,
+                  precision: 96.5,
+                  recall: 91.2,
+                  f1Score: 93.8,
+                  actualDistressedCount: state.visitors.filter((v) => v.state === 'DISTRESS').length,
+                  detectedDistressedCount: state.visitors.filter((v) => v.state === 'DISTRESS').length,
+                  distressDetectionRate: 95.0,
+                  averageDetectionLatencySec: 1.2,
+                  activeTrackCount: state.visitors.length,
+                  averageTrackDurationSec: 45.0,
+                }}
+                beach={state.beach}
+                onUpdatePTZ={updateCameraPTZ}
+                onTogglePower={toggleCameraPower}
+              />
+            </div>
+          ) : activeMainView === 'prediction' ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <PredictionPanel predictionState={state.predictionState || null} beach={state.beach} />
+            </div>
+          ) : activeMainView === 'iot' && iotManager ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <IoTCommandCenter
+                iotManager={iotManager}
+                onModeChange={setIoTDataSourceMode}
+                onToggleSensor={toggleIoTSensorStatus}
+              />
+            </div>
+          ) : activeMainView === 'drones' && droneManager ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <DroneCommandCenter
+                droneManager={droneManager}
+                onRunFlagshipScenario={scenarioPhase13Flagship}
+                onVerifyDistress={dispatchDroneDistressVerification}
+              />
+            </div>
+          ) : activeMainView === 'analytics' && analyticsEngine && replayEngine && scenarioComparator ? (
+            <div className="flex flex-col space-y-2 h-full">
+              <button
+                onClick={() => setActiveMainView('simulation')}
+                className="self-start px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                &larr; Return to 3D Beach Simulation
+              </button>
+              <SafetyDashboard
+                metrics={state.metrics}
+                eventStore={analyticsEngine.getEventStore()}
+                replayEngine={replayEngine}
+                scenarioComparator={scenarioComparator}
+              />
+            </div>
+          ) : activeMainView === 'wristband' ? (
+            <div className="flex-1 min-h-0 bg-slate-900/60 rounded-xl border border-slate-800/80 p-2 overflow-hidden shadow-2xl flex flex-col">
+              <WristbandOperationsHUD onClose={() => setActiveMainView('simulation')} isModal={false} />
+            </div>
+          ) : null}
+        </div>
 
-      {/* View Mode: Handheld Lifeguard Patrol Terminal */}
-      {activeMainView === 'lifeguard' && (
-        <main className="w-full">
-          <LifeguardTerminal
-            beach={state.beach}
-            environment={state.environment}
-            visitors={state.visitors}
+        {/* GRID 3: 15% AI Engine Dashboard, All-Risk Controllers, Fleet (Drones, Lifejackets, Boats) */}
+        <div className="w-full min-h-[640px]">
+          <RightAIEngineControlPanel
+            riskOverview={state.riskOverview}
+            predictionState={state.predictionState}
+            activeDecisions={state.decisions}
+            emergencyResources={state.emergencyResources}
             drones={state.drones || []}
-            selectedPreset={state.beach.presetId || 'RUSHIKONDA_VIZAG'}
+            activeFailures={state.activeFailures}
+            resilience={state.resilience}
+            fallbackStrategy={state.fallbackStrategy}
+            hazards={state.hazards}
+            visitors={state.visitors}
+            visitorStats={state.visitorStats}
+            environment={state.environment}
+            onInjectHazardScenario={injectHazardScenario}
+            onResetManualEnvironment={resetManualEnvironment}
+            isManualEnvironmentActive={state.isManualEnvironmentActive || false}
+            onDispatchDronePatrol={(droneId, routeId) => dispatchDronePatrol(droneId, routeId || 'PATROL-ALPHA')}
+            onDispatchDroneDistressVerification={dispatchDroneDistressVerification}
+            onInjectFailure={injectFailure}
+            onRemoveFailure={removeFailure}
+            onClearAllFailures={clearAllFailures}
+            onTriggerChaosMonkey={triggerChaosMonkey}
             onTriggerSOS={() => {
               const distressed = state.visitors.find((v) => v.state === 'DISTRESS' || v.state === 'STRUGGLING');
               if (distressed) {
@@ -446,170 +786,16 @@ export const App: React.FC = () => {
                 dispatchDronePatrol(state.drones[0].id, 'PATROL-ALPHA');
               }
             }}
-            onDeployDrone={() => {
-              if (state.drones && state.drones.length > 0) {
-                dispatchDronePatrol(state.drones[0].id, 'PATROL-ALPHA');
-              }
-            }}
-          />
-        </main>
-      )}
-
-      {/* View Mode: Manual Risk & Scenario Control Lab */}
-      {activeMainView === 'experiment' && (
-        <main className="w-full">
-          <ExperimentControlLab
-            environment={state.environment}
-            riskOverview={state.riskOverview}
-            riskHistory={state.riskHistory || []}
-            selectedBeachPreset={state.beach.presetId || 'RUSHIKONDA_VIZAG'}
-            onSelectBeachPreset={setBeachPreset}
-            safetyInterventionsActive={state.safetyInterventionsActive !== false}
-            isManualEnvironmentActive={state.isManualEnvironmentActive || false}
-            totalVisitors={state.visitors.length}
-            activeSwimmersCount={
-              state.visitors.filter(
-                (v) => v.state === 'SWIMMING' || v.state === 'DISTRESS' || v.state === 'DRIFTING' || v.state === 'STRUGGLING'
-              ).length
-            }
-            running={state.running}
-            onStart={start}
-            onPause={pause}
-            onReset={reset}
-            onSetManualEnvironment={setManualEnvironment}
-            onResetManualEnvironment={resetManualEnvironment}
-            onSetVisitorPopulation={setVisitorPopulation}
-            onSetSafetyInterventionsActive={setSafetyInterventionsActive}
-            onInjectHazardScenario={injectHazardScenario}
-            onRunRiskProgression={runRiskProgression}
-          />
-        </main>
-      )}
-
-      {/* View Mode: Simulation Cache & Performance Monitor */}
-      {activeMainView === 'performance' && (
-        <main className="w-full">
-          <PerformanceMonitor
-            cacheStats={state.cacheStats}
-            performanceMetrics={state.performanceMetrics}
-            totalVisitors={state.visitors.length}
-            onClearCache={clearCache}
-            onRunBenchmark={runPerformanceBenchmark}
-          />
-        </main>
-      )}
-
-      {/* View Mode: Phase 14 Central Command & Control Center */}
-      {activeMainView === 'command' && commandCenterManager && (
-        <main className="w-full">
-          <CommandCenter
-            commandManager={commandCenterManager}
             emergencyIncidents={state.emergencyIncidents}
-            emergencyResources={state.emergencyResources}
-            drones={state.drones || []}
-            onRunMultiBeachCrisis={scenarioPhase14MultiBeachCrisis}
+            boardStates={state.boardStates}
+            analytics={state.analytics}
+            recentMetrics={state.recentMetrics}
+            actions={state.actions}
+            resourceState={state.resourceState}
+            decisionLogs={state.decisionLogs}
           />
-        </main>
-      )}
-
-      {/* View Mode 2: Phase 11 GIS & Geofencing Command Center */}
-      {activeMainView === 'gis' && gisManager && (
-        <main className="w-full">
-          <GISCommandCenter
-            gisManager={gisManager}
-            simulationState={state}
-          />
-        </main>
-      )}
-
-      {/* View Mode 3: Phase 9 CCTV Vision Safety Layer */}
-      {activeMainView === 'vision' && (
-        <main className="w-full">
-          <VisionPanel
-            cameras={state.cameras || []}
-            detections={state.visitors.map((v) => ({
-              id: `det-${v.id}`,
-              trackId: v.id,
-              bbox: { x: v.position.x - 10, y: v.position.y - 15, width: 20, height: 30 },
-              confidence: 0.92,
-              className: 'PERSON' as const,
-              cameraId: state.cameras?.[0]?.id || 'CAM-01',
-              timestamp: state.time,
-              groundTruthVisitorId: v.id,
-              worldPosition: v.position,
-              inWater: v.position.y >= state.beach.shorelineY,
-            }))}
-            safetyEvents={state.cctvSafetyEvents || []}
-            metrics={state.visionMetrics || {
-              totalPeopleInBeach: state.visitors.length,
-              peopleInCameraCoverage: Math.round(state.visitors.length * 0.8),
-              peopleInBlindZones: Math.round(state.visitors.length * 0.2),
-              coveragePercentage: 80,
-              activeCameraCount: 4,
-              offlineCameraCount: 0,
-              truePositives: Math.round(state.visitors.length * 0.75),
-              falsePositives: 1,
-              falseNegatives: 2,
-              precision: 96.5,
-              recall: 91.2,
-              f1Score: 93.8,
-              actualDistressedCount: state.visitors.filter(v => v.state === 'DISTRESS').length,
-              detectedDistressedCount: state.visitors.filter(v => v.state === 'DISTRESS').length,
-              distressDetectionRate: 95.0,
-              averageDetectionLatencySec: 1.2,
-              activeTrackCount: state.visitors.length,
-              averageTrackDurationSec: 45.0,
-            }}
-            beach={state.beach}
-            onUpdatePTZ={updateCameraPTZ}
-            onTogglePower={toggleCameraPower}
-          />
-        </main>
-      )}
-
-      {/* View Mode 3: Phase 10 AI / ML Predictive Safety Engine */}
-      {activeMainView === 'prediction' && (
-        <main className="w-full">
-          <PredictionPanel
-            predictionState={state.predictionState || null}
-            beach={state.beach}
-          />
-        </main>
-      )}
-
-      {/* View Mode 4: Phase 12 IoT & Physical Sensor Ingestion */}
-      {activeMainView === 'iot' && iotManager && (
-        <main className="w-full">
-          <IoTCommandCenter
-            iotManager={iotManager}
-            onModeChange={setIoTDataSourceMode}
-            onToggleSensor={toggleIoTSensorStatus}
-          />
-        </main>
-      )}
-
-      {/* View Mode 5: Phase 13 Drone Aerial Perception & Response */}
-      {activeMainView === 'drones' && droneManager && (
-        <main className="w-full">
-          <DroneCommandCenter
-            droneManager={droneManager}
-            onRunFlagshipScenario={scenarioPhase13Flagship}
-            onVerifyDistress={dispatchDroneDistressVerification}
-          />
-        </main>
-      )}
-
-      {/* View Mode 6: Phase 8 Safety Performance Dashboard */}
-      {activeMainView === 'analytics' && analyticsEngine && replayEngine && scenarioComparator && (
-        <main className="w-full">
-          <SafetyDashboard
-            metrics={state.metrics}
-            eventStore={analyticsEngine.getEventStore()}
-            replayEngine={replayEngine}
-            scenarioComparator={scenarioComparator}
-          />
-        </main>
-      )}
+        </div>
+      </div>
 
       {/* Automated Scenario Test Report Modal */}
       {state.scenarioReport && showReportModal && (

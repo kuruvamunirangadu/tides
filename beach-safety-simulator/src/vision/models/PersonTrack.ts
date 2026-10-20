@@ -1,5 +1,7 @@
 import { Position } from '../../models/Incident';
-import { BoundingBox } from './Detection';
+import { BoundingBox, DetectionProvenance } from './Detection';
+
+export type TrackLifecycleState = 'TENTATIVE' | 'CONFIRMED' | 'LOST' | 'EXPIRED';
 
 export interface PersonTrack {
   trackId: string;
@@ -17,6 +19,11 @@ export interface PersonTrack {
   direction: number; // angle in degrees
   confidence: number;
   active: boolean;
+  state: TrackLifecycleState;
+  hits: number;
+  misses: number;
+  provenance?: DetectionProvenance;
+  globalCrossCameraId?: string;
   currentZoneId?: string;
   framesTracked: number;
   driftingObserved: boolean;

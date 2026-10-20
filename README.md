@@ -1,339 +1,230 @@
-# 🌊 Autonomous Coastal Beach Safety & Hydrodynamic Hazard Digital Twin
-## Integrated Coastal Early Warning, Computer Vision & Incident Response Platform
+# 🌊 TIDES — Coastal Beach Safety Digital Twin & Impact Lab
+## Andhra Pradesh Integrated Coastal Early Warning, Computer Vision, Reliability & Emergency Response Platform
 
-> **Real-Time Oceanographic Simulation, Multi-Spectral Computer Vision, and Autonomous Incident Decision Platform**
+> **High-Fidelity Oceanographic Simulation (60 FPS), Multi-Spectral Computer Vision, Multi-Asset Autonomous Dispatch, and the Evaluation-Ready TIDES Impact Lab**
 
-An end-to-end, physics-driven coastal safety management platform designed to monitor ocean conditions, calculate hydrodynamic hazards (rip currents, wave surges, astronomical tides, squalls), model human exposure and distress kinematics, and autonomously coordinate multi-asset emergency response (lifeguard dispatch, autonomous search-and-rescue drones, acoustic sirens, and electronic flag warnings).
+**TIDES** is an end-to-end, physics-driven coastal safety management platform and digital twin. Built for the **Beach Safety Innovation Challenge**, the system monitors ocean dynamics, calculates hydrodynamic hazards (rip currents, wave surges, tidal recession, squalls), tracks visitor exposure and distress kinematics, coordinates emergency responders (lifeguards, jet skis, rescue boats, autonomous SAR drones), and houses the **TIDES Impact Lab**—a read-only observer delivering verifiable demonstrations of:
+- **Demo A — Predict**: Multi-horizon rip-current intensification forecasting with early-warning lead-time verification.
+- **Demo B — Remain Reliable**: Sensor & camera failure detection, freshness monitoring, and downstream degraded-state mitigation.
+- **Demo C — Coordinate**: Distressed-swimmer incident replay, Golden Window ($\le 180\,\text{s}$) compliance auditing, and bottleneck analytics.
 
 ---
 
 ## 📑 Table of Contents
 1. [System Architecture](#-system-architecture)
-2. [Project Directory & Module Structure](#-project-directory--module-structure)
-3. [Andhra Pradesh Coastal Presets](#-andhra-pradesh-coastal-presets)
-4. [Multi-Spectral Visual Modes](#-multi-spectral-visual-modes)
-5. [Mathematical & Physical Formulations](#-mathematical--physical-formulations-how-risks-are-calculated)
-   - [A. Rip Current Channel Dynamics & Lateral Escape](#a-rip-current-channel-dynamics--lateral-escape-kinematics)
-   - [B. Astronomical Tides & Shoreline Boundary Recession](#b-astronomical-tides--shoreline-boundary-recession)
-   - [C. Wind Shear & Wave-Coupling Dynamics](#c-wind-shear--wave-coupling-dynamics)
-   - [D. Quantitative Operational Risk Synthesis](#d-quantitative-operational-risk-synthesis)
-6. [Sensor Failure Modes & Fail-Safe Architecture](#-sensor-failure-modes--fail-safe-architecture)
-   - [Physical Causes of Sensor Faults](#physical-causes-of-sensor-faults)
-   - [Confidence-Weighted Sensor Fusion Algorithm](#confidence-weighted-sensor-fusion-algorithm)
-   - [Cross-Sensor Anomaly & Conflict Detection](#cross-sensor-anomaly--conflict-detection)
-   - [Deterministic Synthetic Fallback Imputation](#deterministic-synthetic-fallback-imputation)
-   - [Fail-Safe Conservative Escalation Policy](#fail-safe-conservative-escalation-policy)
-7. [Edge Computer Vision & Distress Inference](#-edge-computer-vision--distress-inference)
-8. [Multilingual Voice Broadcast & Acoustic Sirens](#-multilingual-voice-broadcast--acoustic-sirens)
-9. [Mobile Lifeguard Patrol Terminal](#-mobile-lifeguard-patrol-terminal)
-10. [Low-Latency Simulation Cache Layer](#-low-latency-simulation-cache-layer)
-11. [Manual Risk & Scenario Control Lab](#-manual-risk--scenario-control-lab)
-12. [Quick Start & Running the Project](#-quick-start--running-the-project)
-13. [Verification & Automated Test Suite](#-verification--automated-test-suite)
+2. [Platform Components & Active Services](#-platform-components--active-services)
+3. [Full Feature Breakdown](#-full-feature-breakdown)
+   - [1. Real-Time Hydrodynamic Physics Engine](#1-real-time-hydrodynamic-physics-engine)
+   - [2. Coastal Beach Presets (Rushikonda & Suryalanka)](#2-coastal-beach-presets-rushikonda--suryalanka)
+   - [3. Multi-Spectral Optical HUD & Visual Modes](#3-multi-spectral-optical-hud--visual-modes)
+   - [4. Ambient Ocean Soundscape & Tri-Lingual Audio Alerts](#4-ambient-ocean-soundscape--tri-lingual-audio-alerts)
+   - [5. Visitor Crowd Kinetics & Lateral Rip Escape Routing](#5-visitor-crowd-kinetics--lateral-rip-escape-routing)
+   - [6. Multi-Agency Emergency Response Fleet & Autonomous SAR Drones](#6-multi-agency-emergency-response-fleet--autonomous-sar-drones)
+   - [7. Mobile Lifeguard Patrol Terminal](#7-mobile-lifeguard-patrol-terminal)
+   - [8. Edge Computer Vision Ingestion & Posture Classification](#8-edge-computer-vision-ingestion--posture-classification)
+   - [9. Fail-Safe Sensor Fusion & Watchdog Imputation](#9-fail-safe-sensor-fusion--watchdog-imputation)
+   - [10. Experiment Control Lab & Manual Sea-State Injection](#10-experiment-control-lab--manual-sea-state-injection)
+4. [TIDES Impact Lab: Three High-Impact Demonstrations](#-tides-impact-lab-three-high-impact-demonstrations)
+   - [Demo A — Predict: Predictive Rip Hazard Forecasting](#demo-a--predict-predictive-rip-hazard-forecasting)
+   - [Demo B — Remain Reliable: Sensor & Camera Health Monitoring](#demo-b--remain-reliable-sensor--camera-health-monitoring)
+   - [Demo C — Coordinate: Incident Replay & Emergency Response Analytics](#demo-c--coordinate-incident-replay--emergency-response-analytics)
+5. [Mathematical & Physical Formulations](#-mathematical--physical-formulations)
+6. [Quick Start & Running the Project](#-quick-start--running-the-project)
+7. [Automated Verification & Test Suites](#-automated-verification--test-suites)
+8. [Project Directory & File Structure](#-project-directory--file-structure)
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-                                  ┌────────────────────────────────────────────────────────┐
-                                  │                PHYSICAL / VIRTUAL COAST                │
-                                  │  - Wave Hydrodynamics & Bathymetry Depth Gradients     │
-                                  │  - Harmonic Astronomical Tides & Shoreline Recession   │
-                                  │  - Channelized Seaward Rip Currents & Feeder Flows     │
-                                  │  - Crowd Kinematics, Stamina, Exposure & Distress      │
-                                  └───────────────────────────┬────────────────────────────┘
-                                                              │ Raw Telemetry & Video Feeds
-                                                              ▼
-                                  ┌────────────────────────────────────────────────────────┐
-                                  │             IOT SENSOR FUSION & FAIL-SAFE              │
-                                  │  - Multi-Sensor Confidence Weighting (Acoustic/Radar)  │
-                                  │  - Conflict Quarantine & Drift Detection (Watchdog 45s)│
-                                  │  - Virtual Hydrodynamic Fallback Imputation            │
-                                  └───────────────────────────┬────────────────────────────┘
-                                                              │ Fused Environmental State
-                                                              ▼
-                        ┌────────────────────────────────────────────────────────────────────────────┐
-                        │                       CENTRAL SAFETY & RISK PIPELINE                       │
-                        │                                                                            │
-                        │  ┌───────────────────────┐            ┌─────────────────────────────────┐  │
-                        │  │     Hazard Engine     │            │           Risk Engine           │  │
-                        │  │ (Physical Severity:   │───────────▶│ Total Risk =                    │  │
-                        │  │  Rip, Surf, Tide, Wx) │            │ (W_H·Hazard + W_E·Exposure      │  │
-                        │  └───────────────────────┘            │  + W_V·Vulnerability)           │  │
-                        │                                       └────────────────┬────────────────┘  │
-                        │                                                        │                   │
-                        │  ┌───────────────────────┐            ┌────────────────┴────────────────┐  │
-                        │  │    Response Engine    │◀───────────│         Decision Engine         │  │
-                        │  │ (Resource Allocation, │            │ (Flag Recommendations,          │  │
-                        │  │  Drone / LG Dispatch) │            │  Distress Priority Escalation)  │  │
-                        │  └───────────────────────┘            └─────────────────────────────────┘  │
-                        └─────────────────────────────────────┬──────────────────────────────────────┘
-                                                              │
-                    ┌─────────────────────────────────────────┼────────────────────────────────────────┐
-                    ▼                                         ▼                                        ▼
-         ┌─────────────────────┐                   ┌────────────────────┐                   ┌─────────────────────┐
-         │ MISSION DASHBOARD   │                   │ LIFEGUARD TERMINAL │                   │ PA AUDIO & SIRENS   │
-         │ - Tactical Vector   │                   │ - High-Contrast HUD│                   │ - Tri-Lingual Voice │
-         │ - Satellite Recon   │                   │ - GPS Rip Telemetry│                   │   (తెలుగు / EN / HI)│
-         │ - FLIR Thermal FLIR │                   │ - 1-Tap SOS Action │                   │ - Dual-Tone Sirens  │
-         └─────────────────────┘                   └────────────────────┘                   └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   PHYSICAL / VIRTUAL COASTLINE                                  │
+│  - Bathymetric Submarine Trench Gradients           - Channelized Seaward Rip Currents          │
+│  - Semi-Diurnal Harmonic Tides (M2 Astronomical)    - Bather Kinematics, Stamina & Fatigue      │
+└────────────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                                 │ Raw Telemetry & 60 FPS Digital Twin State
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           CENTRAL SAFETY & DECISION PIPELINE (FastAPI)                          │
+│                                                                                                 │
+│  ┌───────────────────────┐    ┌───────────────────────┐    ┌─────────────────────────────────┐  │
+│  │     Hazard Engine     │───▶│      Risk Engine      │───▶│         Decision Engine         │  │
+│  │ (Wave, Rip, Tide, Wx) │    │ (Hazard+Exposure+Vuln)│    │ (Flag Warnings, Sirens, Drones) │  │
+│  └───────────────────────┘    └───────────────────────┘    └────────────────┬────────────────┘  │
+│                                                                             │                   │
+│                               ┌───────────────────────┐                     │                   │
+│                               │    Response Engine    │◀────────────────────┘                   │
+│                               │ (Multi-Asset Dispatch)│                                         │
+│                               └───────────────────────┘                                         │
+└────────────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               TIDES IMPACT LAB (READ-ONLY OBSERVER)                             │
+│                                                                                                 │
+│  ┌─────────────────────────────┐ ┌─────────────────────────────┐ ┌───────────────────────────┐  │
+│  │      DEMO A: PREDICT        │ │   DEMO B: REMAIN RELIABLE   │ │    DEMO C: COORDINATE     │  │
+│  │ • 1m, 3m, 5m Rip Forecasts  │ │ • Camera & Sensor Health    │ │ • 8-Stage Incident Replay │  │
+│  │ • Bounded Uncertainty Bands │ │ • Freshness Watchdog Windows│ │ • Scrubbable Time Scrubber│  │
+│  │ • Lead Time: (t_ev - t_al)  │ │ • Downstream Degraded Alert │ │ • Golden Window (<= 180s) │  │
+│  │ • Trend vs Persistence MAE  │ │ • Isolated Fault Injection  │ │ • Bottleneck Analytics    │  │
+│  └─────────────────────────────┘ └─────────────────────────────┘ └───────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📁 Project Directory & Module Structure
+## 🖥️ Platform Components & Active Services
 
-```
-c:\Users\kuruv\project\tides\
-│
-├── 📂 backend/                                   # FastAPI Core Safety & Risk Engine
-│   ├── 📂 app/
-│   │   ├── 📄 main.py                            # FastAPI entrypoint, lifespan events, and routers
-│   │   ├── 📂 api/                              # REST API endpoints
-│   │   │   ├── 📄 audio.py                      # Tri-lingual public address trigger route
-│   │   │   ├── 📄 beach.py                      # Zone definitions, geofences, and asset positions
-│   │   │   ├── 📄 health.py                     # Service health check & telemetry heartbeat
-│   │   │   ├── 📄 incidents.py                  # Active incident & rescue dispatch lifecycle
-│   │   │   ├── 📄 metrics.py                    # Real-time safety KPIs, latency, and throughput
-│   │   │   ├── 📄 simulation.py                 # Live tick ingestion & step execution
-│   │   │   ├── 📄 telemetry.py                  # IoT wave buoy telemetry ingestion route
-│   │   │   └── 📄 vision.py                     # CCTV frame detections & bounding box ingest
-│   │   ├── 📂 config/
-│   │   │   └── 📄 thresholds.py                 # Oceanographic thresholds, weights, and limits
-│   │   ├── 📂 models/                          # Pydantic domain models
-│   │   │   ├── 📄 audio.py                      # Multilingual audio payload schemas
-│   │   │   ├── 📄 beach.py                      # Beach zones, coordinates, flags
-│   │   │   ├── 📄 environment.py                # Hydrodynamic state & sensor health
-│   │   │   ├── 📄 incident.py                   # Distress alerts & priority levels
-│   │   │   ├── 📄 metrics.py                    # Risk aggregate metrics
-│   │   │   ├── 📄 response.py                   # Dispatch action models & hazard outputs
-│   │   │   ├── 📄 simulation_state.py          # Unified snapshot state
-│   │   │   ├── 📄 telemetry.py                  # Buoy reading schemas & ingest response
-│   │   │   ├── 📄 vision.py                     # Bounding box & swimmer detection models
-│   │   │   └── 📄 visitor.py                   # Swimmer kinematics and stamina models
-│   │   ├── 📂 safety/                          # Deterministic Safety Intelligence
-│   │   │   ├── 📄 audio_engine.py              # Localized speech synthesis scripts
-│   │   │   ├── 📄 decision_engine.py           # Flag escalation, siren triggers & drone sortie policy
-│   │   │   ├── 📄 hazard_engine.py             # Physical hazard identification (wave, rip, tide, squall)
-│   │   │   ├── 📄 response_engine.py           # Resource allocation & action sequencing
-│   │   │   ├── 📄 risk_engine.py               # Quantitative Hazard + Exposure + Vulnerability scoring
-│   │   │   └── 📄 telemetry_service.py         # Hardware telemetry validation & watchdog
-│   │   ├── 📂 simulation/                      # Backend simulation & scenarios
-│   │   │   ├── 📄 beach_layout.py              # AP Coastal Presets (Rushikonda & Suryalanka)
-│   │   │   ├── 📄 environment.py               # Oceanographic physics engine
-│   │   │   ├── 📄 event_scheduler.py           # Timed scenario event injectors
-│   │   │   ├── 📄 metrics_engine.py            # Latency scorecard & safety funnel
-│   │   │   ├── 📄 scenarios.py                 # Predefined crisis presets
-│   │   │   ├── 📄 simulator.py                 # Master simulation clock & snapshot loop
-│   │   │   └── 📄 visitors.py                  # Visitor crowd kinetics & lateral escape mechanics
-│   │   └── 📂 vision/
-│   │       └── 📄 detector.py                   # Edge CCTV bounding-box inference engine
-│   └── 📂 tests/                               # 31 Comprehensive Pytest Automated Tests
-│       ├── 📄 test_ap_pilot_features.py        # AP presets, audio scripts, and detector tests
-│       ├── 📄 test_audio_pipeline.py           # Tri-lingual audio API tests
-│       ├── 📄 test_command_center.py           # E2E incident command tests
-│       ├── 📄 test_decision_engine.py         # Autonomous dispatch policy tests
-│       ├── 📄 test_drone_engine.py            # Autonomous drone sortie tests
-│       ├── 📄 test_gis_geofencing.py          # Geofence boundary breach tests
-│       ├── 📄 test_hazard_engine.py           # Physical hydrodynamic hazard tests
-│       ├── 📄 test_iot_sensor_fusion.py       # Confidence-weighted sensor fusion & fault tests
-│       ├── 📄 test_risk_engine.py             # Risk formulation tests
-│       ├── 📄 test_simulation.py              # Full simulation lifecycle tests
-│       ├── 📄 test_telemetry_pipeline.py      # Live buoy ingestion & watchdog tests
-│       └── 📄 test_vision_pipeline.py         # Edge CV frame inference tests
-│
-├── 📂 beach-safety-simulator/                   # High-Performance React 19 + TypeScript Frontend
-│   ├── 📂 src/
-│   │   ├── 📂 components/                      # UI Components
-│   │   │   ├── 📄 AudioAlerts.tsx              # Web Audio siren oscillator & Web Speech synthesizer
-│   │   │   ├── 📄 BeachCanvas.tsx              # Tactical Vector, Satellite Recon & FLIR Thermal HUD
-│   │   │   ├── 📄 EnvironmentalGauges.tsx      # IoT Buoy Live vs Fallback status badge
-│   │   │   ├── 📄 EnvironmentPanel.tsx         # Real-time sea-state gauges
-│   │   │   ├── 📄 ExperimentControlLab.tsx     # AP Beach presets & manual risk lab
-│   │   │   ├── 📄 IncidentLog.tsx              # Multi-lingual PA loudspeaker cabin
-│   │   │   └── 📄 LifeguardTerminal.tsx        # Mobile patrol terminal HUD
-│   │   ├── 📂 data/
-│   │   │   └── 📄 beachPresets.ts              # Rushikonda & Suryalanka layout geometry
-│   │   ├── 📂 drones/                          # UAV dispatch & coverage radius engine
-│   │   ├── 📂 models/                          # TypeScript interfaces (Beach, Visitor, Risk, IoT)
-│   │   ├── 📂 simulation/                      # Client-side physics engine & lateral escape pathfinder
-│   │   └── 📂 visitors/                        # Perception engine & crowd kinetics
-│   └── 📄 package.json
-│
-└── 📂 docs/                                     # System Specifications & Proposals
-    └── 📄 AP_Beach_Safety_Project_Proposal.md   # Comprehensive Technical Proposal Report
-```
+The platform consists of three decoupled, independently runnable services:
+
+| Component | Technology Stack | Default Port | Endpoint / URL | Purpose |
+| :--- | :--- | :---: | :--- | :--- |
+| **Beach Safety Simulator & Impact Lab** | React 19, TypeScript, Vite, Tailwind CSS, HTML5 Canvas | `5173` | [http://localhost:5173](http://localhost:5173) | Primary interactive digital twin, multi-spectral canvas, ambient breaker audio, and the complete Impact Lab (Demos A, B, and C). |
+| **Central Safety Engine Backend** | FastAPI, Python 3.10+, Uvicorn, WebSockets | `8000` | [http://localhost:8000/docs](http://localhost:8000/docs) | REST API endpoints (`/api/*`), telemetry stream, edge CV frame ingest, and live `ws://localhost:8000/ws/simulation`. |
+| **Command & Control Operations Dashboard** | Next.js 14, React 18, Recharts, Lucide Icons | `3000` | [http://localhost:3000](http://localhost:3000) | Situational awareness dashboard for beach commanders, lifeguard patrol logs, and live risk funnel telemetry. |
 
 ---
 
-## 🏖️ Andhra Pradesh Coastal Presets
+## 🌟 Full Feature Breakdown
 
-The simulator includes real-world hydrodynamic and bathymetric presets for Andhra Pradesh pilot beaches:
+### 1. Real-Time Hydrodynamic Physics Engine
+- **Continuous 60 FPS Digital Twin**: Simulates dynamic oceanographic bathymetry, shoaling waves, wave setup differentials, and channelized seaward rips.
+- **Multi-Zone Bathymetric Gradients**: Incorporates beach berms, dynamic surf zones, offshore sandbars, rocky headlands, and deep water channels.
+- **Coupled Meteorology**: Surface wind shear, wave period kinetic energy scaling, and semi-diurnal astronomical tidal recession.
 
-1. **Rushikonda Blue Flag Beach (Visakhapatnam — 17.7795° N, 83.3885° E)**:
-   - **Bathymetry**: `EMBEDDED_TRENCH_REEF` with rocky headland wave refraction, $3.8\text{m}$ deep drop-offs, and dual rip channels at `[(120, 300), (380, 520)]`.
-   - **Tidal Amplitude**: $1.45\text{m}$ semi-diurnal tide.
-2. **Suryalanka Beach (Bapatla Coast — 15.8345° N, 80.5051° E)**:
-   - **Bathymetry**: `WIDE_FLAT_SHELF` with severe tidal recession and sudden bore runup ($2.10\text{m}$ tidal amplitude).
-   - **Rip Channels**: Wide central feeder channel at `[(220, 260)]`.
+### 2. Coastal Beach Presets (Rushikonda & Suryalanka)
+- **Rushikonda Blue Flag Beach (Visakhapatnam — 17.7795° N, 83.3885° E)**:
+  - Deep rocky headland refraction, $3.8\text{m}$ submarine trench drop-offs, and dual fixed rip current channels at `[(120, 300), (380, 520)]`.
+- **Suryalanka Beach (Bapatla Coast — 15.8345° N, 80.5051° E)**:
+  - Ultra-wide flat shelf geometry, $2.10\text{m}$ tidal amplitude, rapid shoreline boundary recession, and wide central feeder rips at `[(220, 260)]`.
 
----
-
-## 👁️ Multi-Spectral Visual Modes
-
+### 3. Multi-Spectral Optical HUD & Visual Modes
 The rendering canvas (`BeachCanvas.tsx`) supports 3 operational optical views:
+1. **Tactical Vector Mode**: Operational overlay with lateral rip escape vector guidance, CV target reticles, zone boundary geofences, and vector streamlines.
+2. **Satellite Reconnaissance Mode**: Photorealistic coastal satellite photography with hydrodynamic depth blending, foaming wave crests, and coordinate overlays.
+3. **FLIR Thermal Infrared Mode**: Simulated Ironbow $16^\circ\text{C} - 42^\circ\text{C}$ infrared spectrum highlighting bather core body temperatures and distinct thermal coronas around struggling swimmers.
 
-```
-┌────────────────────────┬────────────────────────┬────────────────────────┐
-│   1. TACTICAL VECTOR   │  2. SATELLITE OPTICAL  │    3. FLIR THERMAL     │
-│   • Dashed Escape Path │  • Photorealistic Sea  │  • Ironbow Heatmap     │
-│   • CCTV Target Reticle│  • Optical Depth Zones │  • White-Hot Bathers   │
-│   • Streamline Currents│  • GPS Satellite HUD   │  • Distress Corona     │
-└────────────────────────┴────────────────────────┴────────────────────────┘
-```
+### 4. Ambient Ocean Soundscape & Tri-Lingual Audio Alerts
+- **Web Audio Breaker Synthesis**: Realistic procedurally generated surf sound effects modulated by significant wave height ($H_s$) and breaker frequency.
+- **Dual-Tone Acoustic Sirens**: $880\text{Hz} / 440\text{Hz}$ emergency siren sweeps alerting bathers when water entry is prohibited.
+- **Tri-Lingual Voice PA Synthesis**: Automated voice broadcasts generated via the browser Web Speech API:
+  - **Telugu (తెలుగు)**: *"హెచ్చరిక: సముద్రంలో బలమైన రిప్ కరెంట్ ప్రవాహం ఉంది. నీటిలోకి వెళ్లవద్దు, వెంటనే ఒడ్డుకు రండి."*
+  - **English**: *"Warning: Dangerous rip current detected. Please exit the water immediately."*
+  - **Hindi (हिन्दी)**: *"चेतावनी: समुद्र में खतरनाक लहरें और बहाव है। कृपया तुरंत पानी से बाहर आएं।"*
 
-1. **Tactical Vector Mode**: High-contrast operational overlay displaying lateral rip escape vectors (cyan/green trajectories) and edge CV bounding reticles.
-2. **Satellite Reconnaissance Mode**: Photorealistic coastal imagery featuring optical depth gradients and coordinate HUD.
-3. **FLIR Thermal Infrared Mode**: Simulated $16^\circ\text{C}-42^\circ\text{C}$ thermal heat signatures highlighting distressed swimmers with distinct thermal coronas.
+### 5. Visitor Crowd Kinetics & Lateral Rip Escape Routing
+- **Individual Agent Kinetics**: Models bather stamina, swimming competence, exhaustion rate, and water exposure duration.
+- **Lateral Rip Escape Algorithm**: Rather than swimming fruitlessly against offshore currents (causing fatal exhaustion within minutes), the pathfinding algorithm steers trapped swimmers perpendicularly toward shallow sandbars ($d < 1.0\text{m}$) before exiting to shore.
+- **Drowning State Machine**: Classifies visitors into `ON_BEACH`, `WADING`, `SWIMMING`, `TRAPPED_IN_RIP`, `STRUGGLING`, `SUBMERGED`, and `RESCUED`.
 
----
+### 6. Multi-Agency Emergency Response Fleet & Autonomous SAR Drones
+- **Dynamic Asset Dispatching**: Allocates responders based on proximity, asset speed, and target priority:
+  - **Lifeguard Patrol**: Foot patrol for immediate shorebreak assistance ($2.5\text{m/s}$).
+  - **Rescue Jet Ski**: High-speed surf transit for open water rescues ($10.0\text{m/s}$).
+  - **SAR Rescue Boat**: Heavy-duty vessel for offshore multi-victim extraction ($8.5\text{m/s}$).
+  - **Autonomous SAR Drone**: UAV interceptor deploying emergency flotation collars directly over victims ($14.0\text{m/s}$).
 
-## 📐 Mathematical & Physical Formulations (How Risks Are Calculated)
+### 7. Mobile Lifeguard Patrol Terminal
+- **High-Contrast Sunlight-Readable HUD**: Displays instantaneous beach flag condition (🟢 Green / 🟡 Yellow / 🔴 Red / ⬛ Double Red).
+- **GPS Rip Spotter Telemetry**: Real-time channel coordinates for pinpointing trapped swimmers.
+- **1-Tap SOS Rapid Dispatch**: Instantly triggers asset sorties from the tower slipway.
 
-### A. Rip Current Channel Dynamics & Lateral Escape Kinematics
+### 8. Edge Computer Vision Ingestion & Posture Classification
+- **Bounding-Box Ingestion (`/api/vision/frame`)**: Ingests CCTV edge inference detections.
+- **Posture Classification**: Detects raised struggling arms, submerged head profiles, and stationary floaters ($> 12\text{s}$).
+- **Rip Dwell Trigger**: Automatically raises emergency incidents when a swimmer remains trapped in a rip channel for $> 15\text{s}$.
 
-Rip currents are driven by wave setup differences over submarine bars draining seaward through narrow bathymetric trenches:
+### 9. Fail-Safe Sensor Fusion & Watchdog Imputation
+- **Multi-Sensor Fusion**: Combines overlapping acoustic, radar, and ocean buoy readings weighted by real-time confidence scores.
+- **Conflict Quarantine**: Isolates divergent sensor pairs ($|\Delta| > 0.35\text{m}$) into a quarantine buffer.
+- **Synthetic $M_2$ Tidal Harmonic Imputation**: If physical buoy heartbeats drop for $> 45\text{s}$, the system activates a mathematical astronomical tide generator.
 
-$$\mathbf{R_{\text{rip}}} = \min\left(1.0, \, (H_s \times 0.40) + (T_p \times 0.03) + \left(\frac{V_{\text{wind}}}{40.0} \times 0.30\right)\right)$$
-
-* $H_s$: Significant wave height in meters ($0.0 - 15.0\text{ m}$).
-* $T_p$: Peak dominant wave period in seconds ($1.0 - 30.0\text{ s}$). Long-period groundswells carry exponentially higher kinetic energy.
-* $V_{\text{wind}}$: Sustained surface wind speed in knots.
-
-#### Lateral Rip Escape Routing (VisitorEngine.ts)
-```
-          OFFSHORE SEAWARD CURRENT (2.0 m/s) ▲
-                                             │
-      ┌──────────────────────────────────────┼──────────────────────────────────────┐
-      │  ❌ DO NOT SWIM STRAIGHT TO SHORE    │  ✅ SWIM LATERALLY (PERPENDICULAR)   │
-      │  (Results in fatal exhaustion in 3m) │  (Exits narrow rip neck in 15-20m)   │
-      └──────────────────────────────────────┼──────────────────────────────────────┘
-                                             │
-                                   [TRAPPED SWIMMER]
-                                       │       │
-                                 ◄─────┘       └─────►
-                           (Lateral Escape)  (Lateral Escape)
-                                 │                   │
-                                 ▼                   ▼
-                           [SANDBAR SHALLOWS]  [SANDBAR SHALLOWS]
-                                 │                   │
-                                 ▼                   ▼
-                       =====================================
-                                 DRY SHORELINE BERM
-```
-Rather than fighting directly against offshore rip currents, the pathfinding algorithm computes the shortest perpendicular lateral exit vector toward shallow sandbars ($d < 1.0\text{m}$), before guiding the agent safely to the dry dune berm.
+### 10. Experiment Control Lab & Manual Sea-State Injection
+- Operators can dynamically adjust environmental variables (wave height, wave period, wind velocity, tidal level, crowd density) to observe instant hydrodynamic and safety flag propagation.
 
 ---
 
-### B. Astronomical Tides & Shoreline Boundary Recession
+## 🔬 TIDES Impact Lab: Three High-Impact Demonstrations
 
-For flat shelf geometries like **Suryalanka (Bapatla)**:
+The **Impact Lab** is an independent, non-intrusive evaluation suite designed specifically for the Beach Safety Innovation Challenge evaluation committee. It operates cleanly alongside the 60 FPS simulation without modifying physics, risk scores, or responder kinematics.
 
-$$\mathbf{R_{\text{tide}}} = \min\left(1.0, \, \left(\frac{h_{\text{tide}}}{h_{\text{max\_amp}}} \times 0.50\right) + \left(\frac{\Delta h / \Delta t}{0.50\text{ m/hr}} \times 0.50\right)\right)$$
+### Demo A — Predict: Predictive Rip Hazard Forecasting
+- **Multi-Horizon Extrapolation**: Generates rip-current velocity projections for 1-minute ($+60\text{s}$), 3-minute ($+180\text{s}$), and 5-minute ($+300\text{s}$) horizons.
+- **Timestamped Trend Estimation**: Calculates velocity rate of change using true simulation timestamps ($dv/dt = \Delta v / \Delta t$) rather than assuming fixed frame rates.
+- **Physical Clamping & Plausibility Bands**: Bounds forecasts within physical shelf maximums ($[0.0, 3.2]\,\text{m/s}$) with expanding uncertainty bands proportional to horizon distance.
+- **Persistence Baseline Benchmarking**: Benchmarks the trend model against a naive persistence baseline ($\hat{v}(t+h) = v(t)$).
+- **Automated Accuracy & Lead-Time Scoring**:
+  - **Velocity MAE**: Mean absolute error against subsequent ground truth.
+  - **Warning Lead Time**: Achieves verified early warnings ($t_{\text{event}} - t_{\text{alert}} \ge 40\text{s}$) before hazards cross dangerous thresholds ($1.5\,\text{m/s}$).
+  - **Forecast Coverage %**: Validates that all eligible forecasts receive ground-truth scoring.
+  - **Missed-Event & False-Alarm Rates**: Quantifies reliability across stationary and rapid-surge scenarios.
+- **5-Scenario Evaluation Test Suite (`ForecastTestSuite.ts`)**:
+  1. *Gradually intensifying rip current* (verified positive lead time, Trend MAE < Baseline MAE).
+  2. *Stable environmental conditions* (verified $dv/dt \approx 0$, zero false alarms).
+  3. *Rapid hazard surge* (verified physical clamping $\le 3.2\,\text{m/s}$, uncertainty expansion).
+  4. *Missing & stale ingress observations* (verified `INSUFFICIENT_HISTORY` rejection, zero fabrication).
+  5. *Scenario reset & discontinuous timestamps* (verified negative $\Delta t$ rejection, clean reset).
 
-* $h_{\text{tide}}$: Instantaneous water elevation relative to Mean Sea Level (MSL).
-* $\Delta h / \Delta t$: Rate of tidal change in meters per hour.
+### Demo B — Remain Reliable: Sensor & Camera Health Monitoring
+- **9 Tracked Ingress Streams**: Monitors `CAM-01` through `CAM-04`, `CURRENT-ADCP-01`, `WAVE-BUOY-01`, `WEATHER-AWS-01`, `TIDE-GAUGE-01`, and `UNKNOWN-SENSOR-01`.
+- **Category-Specific Freshness Thresholds**: Configurable warning age, stale age, and offline age per sensor type.
+- **Strict State Classification**: Clearly distinguishes `HEALTHY`, `STALE`, `OFFLINE`, `DEGRADED`, and preserves `UNKNOWN` (uncalibrated sources never falsely default to healthy).
+- **Isolated Failure Injection (`FailureScenarioRunner.ts`)**: Injects test-only faults (camera disconnect, delayed packets, out-of-bounds spikes, compound failures) without mutating the simulation engine.
+- **Decoupled Downstream Safety Outputs (`DegradedOutputDetector.ts`)**:
+  - When underlying sensors fail, downstream outputs (e.g. Zone B Distress Verification, Rip Forecasts) are visibly marked `DEGRADED` or `UNAVAILABLE`.
+  - Raw AI model detection confidence is strictly decoupled from physical stream freshness. Stale data is never silently presented as current.
+- **6-Scenario Evaluation Test Suite (`ReliabilityTestSuite.ts`)**:
+  1. *Baseline nominal & unknown preservation*.
+  2. *One camera unavailable (CAM-02 dropout)*.
+  3. *Telemetry delayed past freshness threshold (ADCP stale)*.
+  4. *Invalid out-of-bounds measurement (Buoy 8.5m spike)*.
+  5. *Failed source restored (requires 3 consecutive valid frames)*.
+  6. *Multiple simultaneous compound failures*.
 
----
-
-### C. Wind Shear & Wave-Coupling Dynamics
-
-Wave growth and whitecap breaking follow the **Pierson-Moskowitz** empirical spectral model:
-
-$$H_s \approx \frac{0.22 \cdot U_{10}^2}{g}$$
-
-When sustained winds exceed $25\text{ knots}$, breaker depth indices shift shoreward, generating chaotic chop and elevated rip feeder velocity.
-
----
-
-### D. Quantitative Operational Risk Synthesis
-
-$$\mathbf{S_{\text{zone}}} = 0.35 \cdot R_{\text{wave}} + 0.30 \cdot R_{\text{rip}} + 0.20 \cdot R_{\text{tide}} + 0.15 \cdot E_{\text{crowd}}$$
-
-* **$S_{\text{zone}} < 0.35$**: 🟢 **GREEN FLAG** (Safe recreational bathing).
-* **$0.35 \le S_{\text{zone}} \le 0.70$**: 🟡 **YELLOW FLAG** (Caution advisory; rip feeder channels active).
-* **$S_{\text{zone}} > 0.70$**: 🔴 **RED FLAG** (Critical danger; water entry prohibited, automated sirens activated).
-
----
-
-## 🛡️ Sensor Failure Modes & Fail-Safe Architecture
-
-```
-Physical Sensor Feeds ──▶ [ Anomaly & Drift Filter ]
-                                  │
-                  ┌───────────────┴───────────────┐
-                  ▼                               ▼
-       Valid Sensor Readings            Degraded / Offline Feed
-                  │                               │
-                  ▼                               ▼
-       [ Weighted Average Fusion ]      [ Synthetic M₂ Harmonic Model ]
-          x̂ = Σ(xᵢ·cᵢ) / Σcᵢ             (Astronomical Ephemeris)
-                  │                               │
-                  └───────────────┬───────────────┘
-                                  │
-                                  ▼
-                     [ Conservative Safety Buffer ]
-                     (Auto-Escalate Warning Flags)
-```
-
-1. **Confidence-Weighted Multi-Sensor Fusion**: Combines overlapping acoustic, radar, and buoy readings weighted by real-time confidence ($c_i$).
-2. **Cross-Sensor Conflict Detection**: Identifies and isolates divergent sensors ($|x_1 - x_2| > 0.35\text{m}$) into a quarantine buffer.
-3. **Deterministic Synthetic Fallback**: If physical buoys drop heartbeat for $>45\text{s}$, the system activates a mathematical $M_2$ tidal harmonic generator.
-4. **Fail-Safe Conservative Policy**: Missing or suspect telemetry automatically widens safety buffers and raises warning flags.
-
----
-
-## 📹 Edge Computer Vision & Distress Inference
-
-Implemented in [`detector.py`](file:///c:/Users/kuruv/project/tides/backend/app/vision/detector.py) and [`vision.py`](file:///c:/Users/kuruv/project/tides/backend/app/api/vision.py):
-* **Posture Detection**: Classifies `struggling_arms`, `submerged_head`, and motionless bathers ($>12\text{s}$).
-* **Geofence Safety Boundary**: Flags swimmers drifting beyond designated seaward limits (`y_seaward_limit`).
-* **Rip Dwell Trigger**: Automatically raises emergency incidents when bathers remain trapped in rip channels for $>15\text{s}$.
+### Demo C — Coordinate: Incident Replay & Emergency Response Analytics
+- **8 Canonical Lifecycle Milestones**:
+  1. `HAZARD_OBSERVED` $\rightarrow$ 2. `DISTRESS_DETECTED` $\rightarrow$ 3. `ALERT_BROADCAST` $\rightarrow$ 4. `RESPONDER_ASSIGNED` $\rightarrow$ 5. `RESPONDER_DEPARTED` $\rightarrow$ 6. `RESPONDER_ARRIVED` $\rightarrow$ 7. `ASSISTANCE_BEGAN` $\rightarrow$ 8. `INCIDENT_RESOLVED`.
+- **Golden Window Compliance ($\le 180\,\text{s}$)**: Measures time from initial distress to on-scene assistance against the international $3$-minute lifesaving benchmark.
+- **Mathematical Response Metrics (`ResponseMetrics.ts`)**:
+  - $\text{Detection Latency} = t_{\text{distress}} - t_{\text{onset}}$
+  - $\text{Dispatch Latency} = t_{\text{assigned}} - t_{\text{distress}}$
+  - $\text{Travel Time} = t_{\text{arrived}} - t_{\text{departed}}$
+  - $\text{Time to Assistance} = t_{\text{assisted}} - t_{\text{onset}}$
+  - $\text{Total Duration} = t_{\text{resolved}} - t_{\text{onset}}$
+  - $\text{Responder Utilization} = \text{Busy Time} / \text{Window}$
+- **Zero Fabrication Guarantee**: Unrecorded milestones remain `null` / `UNAVAILABLE`. Estimated kinematic travel times are visibly tagged `ESTIMATE` and separated from `RECORDED FACT`.
+- **Synchronized Playback Scrubber**: Scrubbable event timeline with playback controls (Play, Pause, Step, $1\times, 2\times, 5\times$).
+- **Bottleneck Diagnostics & Dossier Exporter**: Identifies dispatch delays, reassignment overhead, and exports structured JSON dossiers.
+- **8-Scenario Evaluation Test Suite (`IncidentReplayTestSuite.ts`)**:
+  1. *Complete incident lifecycle*.
+  2. *Missing detection event (latency null, not fabricated)*.
+  3. *No recorded arrival (travel time null)*.
+  4. *Multi-responder coordination (Boat + UAV Drone)*.
+  5. *Duplicate event deduplication*.
+  6. *Out-of-order timestamp sorting*.
+  7. *Multiple simultaneous incidents (strict dossier isolation)*.
+  8. *Missing resolution timestamp (duration null, active flag)*.
 
 ---
 
-## 📢 Multilingual Voice Broadcast & Acoustic Sirens
+## 📐 Mathematical & Physical Formulations
 
-Implemented in [`audio_engine.py`](file:///c:/Users/kuruv/project/tides/backend/app/safety/audio_engine.py) and [`AudioAlerts.tsx`](file:///c:/Users/kuruv/project/tides/beach-safety-simulator/src/components/AudioAlerts.tsx):
-* **Native Telugu Broadcasts**: `"హెచ్చరిక: సముద్రంలో బలమైన రిప్ కరెంట్ ప్రవాహం ఉంది. నీటిలోకి వెళ్లవద్దు, వెంటనే ఒడ్డుకు రండి."`
-* **English & Hindi Broadcasts**: Automated tri-lingual synthesis via the browser Web Speech API.
-* **Dual-Tone Sirens**: Real-time $880\text{Hz} / 440\text{Hz}$ acoustic siren oscillations via the Web Audio API.
+### 1. Rip Current Velocity Formulation
+$$R_{\text{rip}} = \min\left(1.0, \, (H_s \times 0.40) + (T_p \times 0.03) + \left(\frac{V_{\text{wind}}}{40.0} \times 0.30\right)\right)$$
 
----
+### 2. Multi-Factor Beach Safety Score
+$$S_{\text{zone}} = 0.35 \cdot R_{\text{wave}} + 0.30 \cdot R_{\text{rip}} + 0.20 \cdot R_{\text{tide}} + 0.15 \cdot E_{\text{crowd}}$$
+- **$S_{\text{zone}} < 0.35$**: 🟢 **GREEN FLAG** (Low Hazard)
+- **$0.35 \le S_{\text{zone}} \le 0.70$**: 🟡 **YELLOW FLAG** (Caution / Active Rip Feeders)
+- **$S_{\text{zone}} > 0.70$**: 🔴 **RED FLAG** (Critical Hazard / Water Entry Prohibited)
 
-## 🛟 Mobile Lifeguard Patrol Terminal
+### 3. Predictive Trend Extrapolation
+$$\hat{v}(t + h) = \text{clamp}\left(v(t) + h \cdot \frac{v(t) - v(t - \Delta t)}{\Delta t}, \; 0.0, \; 3.2\right)$$
 
-Implemented in [`LifeguardTerminal.tsx`](file:///c:/Users/kuruv/project/tides/beach-safety-simulator/src/components/LifeguardTerminal.tsx):
-* **High-Contrast Patrol HUD**: Sunlight-readable flag status (🟢 / 🟡 / 🔴 / ⬛).
-* **Live GPS Rip Telemetry**: Displays exact coordinates for spotter deployment.
-* **1-Tap SOS Rapid Dispatch**: Instantly deploys SAR boats and autonomous lifebuoy drop drones.
-
----
-
-## ⚡ Low-Latency Simulation Cache Layer
-
-To support thousands of simultaneous visitors and multi-spectral rendering at 60 FPS without lag, derived calculations are cached in an in-memory Map layer (`src/cache/SimulationCache.ts`):
-* **Spatial Lookup Memoization**: Caches nearest-hazard calculations and spatial neighborhood lookups.
-* **Non-Authoritative Architecture**: The cache is completely disposable. If cleared, the simulation continues seamlessly from raw physical state.
-
----
-
-## 🎛️ Manual Risk & Scenario Control Lab
-
-The **Experiment Control Lab** (`ExperimentControlLab.tsx`) allows operators to manipulate the underlying physical sea-state in real-time:
-* **Controls**: Wave Height, Current Velocity, Tidal Change Rate, Wind Speed, Visibility, and Visitor Crowd Size.
-* **Dynamic Physics Propagation**: Adjustments naturally propagate through hydrodynamic equations and trigger realistic safety interventions.
+### 4. Mean Absolute Error (MAE)
+$$\text{MAE} = \frac{1}{N} \sum_{i=1}^N \left| \hat{v}_i - v_i \right|$$
 
 ---
 
@@ -342,62 +233,115 @@ The **Experiment Control Lab** (`ExperimentControlLab.tsx`) allows operators to 
 ### Prerequisites
 - **Node.js**: v18.0.0 or higher
 - **Python**: v3.10 or higher
+- **PowerShell / Bash**
 
 ---
 
-### 1. Start the FastAPI Safety Backend
+### Step 1: Start the Central Safety FastAPI Backend (Port 8000)
 
-```bash
-# Navigate to backend directory
+```powershell
 cd backend
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Start FastAPI server on port 8000
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Using project virtual environment
+.\.venv\Scripts\activate
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-* **API Documentation (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-* **WebSocket Stream:** `ws://127.0.0.1:8000/ws/simulation`
+- **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **WebSocket Endpoint**: `ws://localhost:8000/ws/simulation`
 
 ---
 
-### 2. Start the Frontend Simulator Dashboard
+### Step 2: Start the Beach Safety Simulator & Impact Lab (Port 5173)
 
-```bash
-# Navigate to simulator frontend
+```powershell
 cd beach-safety-simulator
-
-# Install dependencies
 npm install
-
-# Start Vite development server
 npm run dev
 ```
-* **Frontend Web Dashboard:** [http://localhost:5173/](http://localhost:5173/)
+- **Simulator & Impact Lab Web App**: [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## 🧪 Verification & Automated Test Suite
+### Step 3: Start the Command & Control Dashboard (Port 3000)
 
-Run the full automated test suite covering hydrodynamic calculations, sensor fusion, geofence breaches, and autonomous dispatch:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+- **Command Dashboard**: [http://localhost:3000](http://localhost:3000)
 
-```bash
+---
+
+## 🧪 Automated Verification & Test Suites
+
+The repository contains automated programmatic test suites covering all architectural layers:
+
+### 1. Central Safety Engine Pytest Suite (31 Tests Passed - 100%)
+```powershell
 cd backend
 pytest -v
 ```
+- Validates AP presets, buoy telemetry ingestion, CV bounding box parsing, audio scripts, sensor fusion, decision flags, and SAR drone sortie policies.
 
-### Test Suite (31 Tests Passed - 100%)
-* `test_ap_pilot_features.py`: Verifies Rushikonda/Suryalanka presets, tri-lingual audio scripts, and detector hooks.
-* `test_telemetry_pipeline.py`: Verifies live buoy ingestion (`/api/telemetry/buoy`) and 45s watchdog fallback.
-* `test_vision_pipeline.py`: Verifies edge CV bounding box ingestion (`/api/vision/frame`) and distress classifications.
-* `test_audio_pipeline.py`: Verifies multilingual audio generation and automated flag escalation triggers.
-* `test_iot_sensor_fusion.py`: Verifies confidence-weighted sensor fusion and conflict quarantine.
-* `test_hazard_engine.py`: Verifies wave energy, rip velocity, tidal surge, and squall detection thresholds.
-* `test_risk_engine.py`: Verifies the Hazard $\times$ Exposure $\times$ Vulnerability formulation.
-* `test_decision_engine.py`: Verifies autonomous flag updates, PA siren triggers, and lifeguard/drone dispatch rules.
-* `test_drone_engine.py`: Verifies autonomous SAR drone dispatch and coverage circles.
-* `test_gis_geofencing.py`: Verifies dynamic boundary calculations and restricted zone intrusion alarms.
+### 2. Impact Lab Demo A Test Suite (`ForecastTestSuite.ts`)
+- 5 scenarios: Gradual intensification, stable surf, flash rip surge, missing telemetry, and scenario reset.
+
+### 3. Impact Lab Demo B Test Suite (`ReliabilityTestSuite.ts`)
+- 6 scenarios: Nominal baseline, camera dropout, stale ADCP telemetry, out-of-bounds buoy spike, feed recovery hysteresis, and compound failures.
+
+### 4. Impact Lab Demo C Test Suite (`IncidentReplayTestSuite.ts`)
+- 8 scenarios: Complete lifecycle, missing detection, unrecorded arrival, multi-responder coordination, deduplication, out-of-order sorting, simultaneous incidents, and pending resolution.
+
+---
+
+## 📁 Project Directory & File Structure
+
+```
+d:\MUNI RANGADU KURUVA\tides-main\
+│
+├── 📂 backend/                                   # FastAPI Safety Core & Hydrodynamic Simulation
+│   ├── 📂 app/
+│   │   ├── 📄 main.py                            # FastAPI entrypoint, lifespan event loop, and routers
+│   │   ├── 📂 api/                              # REST API endpoints (beach, incidents, telemetry, vision, audio)
+│   │   ├── 📂 safety/                           # HazardEngine, RiskEngine, DecisionEngine, ResponseEngine
+│   │   ├── 📂 simulation/                       # BeachSimulator, BeachLayout, WavePhysics, Visitors
+│   │   └── 📂 vision/                           # Edge CCTV bounding-box detector
+│   └── 📂 tests/                               # 31 Pytest automated integration tests
+│
+├── 📂 beach-safety-simulator/                   # React 19 + TypeScript + Vite 60 FPS Digital Twin
+│   ├── 📂 src/
+│   │   ├── 📂 components/                      # BeachCanvas, AudioAlerts, LifeguardTerminal, Gauges
+│   │   ├── 📂 simulation/                      # Client-side 60 FPS canvas loop & physics
+│   │   ├── 📂 visitors/                        # Perception engine & crowd kinetics
+│   │   └── 📂 impact-lab/                      # Evaluation Committee Impact Lab
+│   │       ├── 📄 ImpactLabDashboard.tsx        # Unified 3-demo container & JSON dossier exporter
+│   │       ├── 📄 types.ts                      # Telemetry snapshot, sensor health, and event contracts
+│   │       ├── 📂 forecast/                     # DEMO A: PREDICT
+│   │       │   ├── 📄 ForecastEngine.ts         # Multi-horizon trend extrapolation (1m, 3m, 5m)
+│   │       │   ├── 📄 ForecastEvaluator.ts      # MAE, coverage, lead-time, missed/false alarm scoring
+│   │       │   ├── 📄 ForecastComparisonPanel.tsx # Side-by-side forecast horizon UI & scorecards
+│   │       │   └── 📂 tests/ForecastTestSuite.ts # 5 repeatable evaluation test scenarios
+│   │       ├── 📂 reliability/                  # DEMO B: REMAIN RELIABLE
+│   │       │   ├── 📄 SensorHealthMonitor.ts    # Freshness watchdog (Healthy/Stale/Offline/Degraded/Unknown)
+│   │       │   ├── 📄 FailureScenarioRunner.ts  # Isolated test fault injection harness
+│   │       │   ├── 📄 DegradedOutputDetector.ts # Downstream safety output degradation mapping
+│   │       │   ├── 📄 ReliabilityPanel.tsx      # Sensor status grid & fault injection UI
+│   │       │   └── 📂 tests/ReliabilityTestSuite.ts # 6 repeatable evaluation test scenarios
+│   │       └── 📂 replay/                       # DEMO C: COORDINATE
+│   │           ├── 📄 IncidentEventRecorder.ts  # Monotonic event aggregator & deduplicator
+│   │           ├── 📄 ResponseMetrics.ts        # Golden Window (<= 180s) & latency calculators
+│   │           ├── 📄 IncidentTimeline.tsx      # 8-milestone scrubbable playback scrubber (1x, 2x, 5x)
+│   │           ├── 📄 IncidentReplayPanel.tsx   # Incident dossier selector & KPI cards
+│   │           └── 📂 tests/IncidentReplayTestSuite.ts # 8 repeatable evaluation test scenarios
+│   └── 📄 package.json
+│
+├── 📂 frontend/                                 # Next.js 14 Command Operations Dashboard
+│   ├── 📂 app/                                  # Next.js App Router (Situational Awareness HUD)
+│   ├── 📂 components/                           # Risk charts, fleet tables, and telemetry feeds
+│   └── 📄 package.json
+│
+└── 📄 README.md                                 # Master System Documentation
+```
 
 ---
 

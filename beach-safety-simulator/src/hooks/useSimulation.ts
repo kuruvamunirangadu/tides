@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { SimulationState, BeachPresetId } from '../models/Beach';
+import { TelemetryRecorder } from '../impact-lab/recorder/TelemetryRecorder';
+import { IncidentEventRecorder } from '../impact-lab/replay/IncidentEventRecorder';
+
+import { ForecastEngine } from '../impact-lab/forecast/ForecastEngine';
+import { SensorHealthMonitor } from '../impact-lab/reliability/SensorHealthMonitor';
+import { FailureScenarioRunner } from '../impact-lab/reliability/FailureScenarioRunner';
+import { ResponseMetricsCalculator } from '../impact-lab/replay/ResponseMetrics';
 
 export function useSimulation() {
   const engineRef = useRef<SimulationEngine | null>(null);
@@ -18,10 +25,56 @@ export function useSimulation() {
     let lastUiUpdate = 0;
     const UI_INTERVAL_MS = 33;
 
+    const recorder = TelemetryRecorder.getInstance();
+    const incidentRecorder = IncidentEventRecorder.getInstance();
+
     const unsubscribe = engine.subscribe((newState) => {
+      // Impact Lab Telemetry & Incident Observer (Read-only)
+      recorder.recordTick(newState);
+      incidentRecorder.recordTick(newState);
+      FailureScenarioRunner.getInstance().tick(newState.time, newState.timeDisplay);
+
       const now = performance.now();
       if (now - lastUiUpdate >= UI_INTERVAL_MS) {
         lastUiUpdate = now;
+
+        // Bridge Impact Lab intelligence into live SimulationState
+        try {
+          const snapshots = recorder.getSnapshots();
+          const forecast = ForecastEngine.getInstance().generateForecast(snapshots);
+          const sensors = SensorHealthMonitor.getInstance().getAllSensors();
+          const incidents = incidentRecorder.getIncidents();
+          const activeInc = incidents[0];
+          const activeMetrics = activeInc ? ResponseMetricsCalculator.calculate(activeInc) : null;
+
+          newState.impactLab = {
+            forecastHorizons: forecast.horizons.map((h) => ({
+              horizonSeconds: h.horizonSeconds,
+              horizonLabel: h.horizonLabel,
+              predictedVelocity: h.predictedVelocity,
+              predictedRiskCategory: h.predictedRiskCategory,
+              uncertaintyMin: h.uncertaintyBand.min,
+              uncertaintyMax: h.uncertaintyBand.max,
+            })),
+            sensorHealthSummary: {
+              totalSensors: sensors.length,
+              healthyCount: sensors.filter((s) => s.status === 'HEALTHY').length,
+              staleCount: sensors.filter((s) => s.status === 'STALE').length,
+              offlineCount: sensors.filter((s) => s.status === 'OFFLINE').length,
+              degradedCount: sensors.filter((s) => s.status === 'DEGRADED').length,
+            },
+            activeGoldenWindow: activeMetrics && activeInc ? {
+              incidentId: activeInc.incidentId,
+              timeToAssistanceSeconds: activeMetrics.timeToAssistanceSeconds,
+              isWithinGoldenWindow: activeMetrics.isWithinGoldenWindow,
+              goldenWindowLimitSeconds: 180,
+              status: activeInc.status,
+            } : undefined,
+          };
+        } catch {
+          // Graceful fallback
+        }
+
         setState(newState);
       }
     });
@@ -94,22 +147,58 @@ export function useSimulation() {
   const testCaseC = () => engineRef.current?.testCaseC();
 
   // Phase 7 Failure & Resilience Scenarios
-  const scenarioPhase7CompoundCrisis = () => engineRef.current?.scenarioPhase7CompoundCrisis();
-  const scenarioPhase7SensorConflict = () => engineRef.current?.scenarioPhase7SensorConflict();
-  const scenarioPhase7GPSDrift = () => engineRef.current?.scenarioPhase7GPSDrift();
-  const scenarioPhase7CommBlackout = () => engineRef.current?.scenarioPhase7CommBlackout();
-  const triggerChaosMonkey = () => engineRef.current?.triggerChaosMonkey();
-  const runAutomatedScenario = (key: 'COMPOUND' | 'CONFLICT' | 'GPS' | 'COMM') =>
-    engineRef.current?.runAutomatedScenario(key);
-  const injectFailure = (type: any, name: string, desc: string, sev?: any, target?: string, dur?: number, params?: any) =>
-    engineRef.current?.injectFailure(type, name, desc, sev, target, dur, params);
-  const removeFailure = (id: string) => engineRef.current?.removeFailure(id);
-  const clearAllFailures = () => engineRef.current?.clearAllFailures();
+  const scenarioPhase7CompoundCrisis = () => {
+    engineRef.current?.scenarioPhase7CompoundCrisis();
+    syncImmediate();
+  };
+  const scenarioPhase7SensorConflict = () => {
+    engineRef.current?.scenarioPhase7SensorConflict();
+    syncImmediate();
+  };
+  const scenarioPhase7GPSDrift = () => {
+    engineRef.current?.scenarioPhase7GPSDrift();
+    syncImmediate();
+  };
+  const scenarioPhase7CommBlackout = () => {
+    engineRef.current?.scenarioPhase7CommBlackout();
+    syncImmediate();
+  };
+  const triggerChaosMonkey = () => {
+    engineRef.current?.triggerChaosMonkey();
+    syncImmediate();
+  };
+  const runAutomatedScenario = (key: 'COMPOUND' | 'CONFLICT' | 'GPS' | 'COMM') => {
+    const res = engineRef.current?.runAutomatedScenario(key);
+    syncImmediate();
+    return res;
+  };
+  const injectFailure = (type: any, name: string, desc: string, sev?: any, target?: string, dur?: number, params?: any) => {
+    const res = engineRef.current?.injectFailure(type, name, desc, sev, target, dur, params);
+    syncImmediate();
+    return res;
+  };
+  const removeFailure = (id: string) => {
+    engineRef.current?.removeFailure(id);
+    syncImmediate();
+  };
+  const clearAllFailures = () => {
+    engineRef.current?.clearAllFailures();
+    syncImmediate();
+  };
 
   // Environmental Triggers
-  const triggerWaveSpike = (heightM?: number) => engineRef.current?.triggerWaveSpike(heightM);
-  const triggerCurrentSpike = (currentMps?: number) => engineRef.current?.triggerCurrentSpike(currentMps);
-  const triggerWeatherSquall = () => engineRef.current?.triggerWeatherSquall();
+  const triggerWaveSpike = (heightM?: number) => {
+    engineRef.current?.triggerWaveSpike(heightM);
+    syncImmediate();
+  };
+  const triggerCurrentSpike = (currentMps?: number) => {
+    engineRef.current?.triggerCurrentSpike(currentMps);
+    syncImmediate();
+  };
+  const triggerWeatherSquall = () => {
+    engineRef.current?.triggerWeatherSquall();
+    syncImmediate();
+  };
 
   // Phase 9 CCTV Controls
   const updateCameraPTZ = (cameraId: string, rotation: number, fov: number) =>

@@ -35,7 +35,7 @@ export const DroneCommandCenter: React.FC<DroneCommandCenterProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              PHASE 13 • AERIAL PERCEPTION & RESPONSE
+              AERIAL PERCEPTION & RESPONSE
             </span>
             <span className="text-xs text-slate-400 font-mono">Mobile UAV Observation Layer</span>
           </div>

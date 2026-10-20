@@ -32,6 +32,7 @@ import { SimulationMetrics } from '../analytics/metrics/Types';
 import { VisionEngine, VisionState } from '../vision/VisionEngine';
 import { PredictionEngine } from '../prediction/PredictionEngine';
 import { PredictionState } from '../prediction/models/PredictionTypes';
+import { PredictiveRiskAdvisoryService } from '../prediction/service/PredictiveRiskAdvisoryService';
 import { GISManager } from '../gis/GISManager';
 import { GeofenceBreachEvent } from '../gis/models/Geofence';
 import { IoTManager, DataSourceMode } from '../iot/IoTManager';
@@ -403,11 +404,23 @@ export class SimulationEngine {
           waveHeight: 2.2,
           ripProbability: 0.95,
         });
-        // Select or make target swimmer drift
-        const swimmer = this.visitors.find((v) => v.state === 'SWIMMING') || this.visitors[0];
+        // Select or create target swimmer in critical offshore distress
+        let swimmer = this.visitors.find((v) => v.state === 'SWIMMING' || v.state === 'DRIFTING');
+        if (!swimmer && this.visitors.length > 0) {
+          swimmer = this.visitors[0];
+        }
         if (swimmer) {
-          swimmer.state = 'DRIFTING';
+          swimmer.state = 'DISTRESS';
           swimmer.position = { x: 560, y: 310 };
+          swimmer.distressLevel = 0.95;
+          swimmer.fatigue = 0.9;
+          swimmer.distressState = {
+            level: 0.95,
+            cause: 'STRONG_CURRENT',
+            startedAt: this.clock.getTimeSeconds(),
+            location: { x: 560, y: 310 },
+            assistanceRequired: true,
+          };
           this.selectedVisitorId = swimmer.id;
         }
         break;
@@ -644,6 +657,19 @@ export class SimulationEngine {
     this.resilience = failureRes.resilience;
     this.isNightMode = failureRes.isNightMode;
 
+    // Synchronize Camera Status with activeFailures
+    const cameraFailures = this.activeFailures.filter((f) => f.type === 'CAMERA_FAILURE');
+    const camMgr = this.visionEngine.getCameraManager();
+    for (const cam of camMgr.getAllCameras()) {
+      const isFailed = cameraFailures.some((f) => {
+        if (!f.targetId) return true;
+        if (f.targetId === cam.id) return true;
+        if (f.targetId === 'CCTV-01' && cam.id === 'CAM-01') return true;
+        return false;
+      });
+      camMgr.updateCameraStatus(cam.id, isFailed ? 'OFFLINE' : 'ONLINE');
+    }
+
     // Phase 2: Hazard Detection (Cached with version invalidation)
     const hazardCacheKey = CacheKeys.hazardDetection(this.environmentVersion, this.visitors.length);
     this.activeHazards = this.cache.getOrCompute(
@@ -726,13 +752,21 @@ export class SimulationEngine {
       );
     }
 
-    // Phase 10: AI / ML Predictive Safety Engine Tick (~3 Hz)
+    // Phase 10 & Phase 7: AI / ML Predictive Safety Engine & Advisory Tick (~3 Hz)
     this.predictionAccumulator += deltaTime;
     if (this.predictionAccumulator >= 0.3 || !this.latestPredictionState) {
       this.predictionAccumulator = 0;
       this.latestPredictionState = this.predictionEngine.update(
         this.beach,
         env,
+        currentTime
+      );
+      // Phase 7: Predictive Coastal Risk Intelligence Advisory Evaluation
+      PredictiveRiskAdvisoryService.getInstance().evaluateCoastalRisk(
+        this.beach,
+        env,
+        this.visitors,
+        this.activeIncidents,
         currentTime
       );
     }
@@ -828,6 +862,8 @@ export class SimulationEngine {
       fallbackStrategy: this.fallbackStrategy,
       resilience: this.resilience,
       isNightMode: this.isNightMode,
+      sensorConflict: this.failureEngine.getSensorConflict(),
+      gpsErrorMeters: this.failureEngine.getGPSErrorMeters(),
       scenarioReport: this.scenarioReport,
       metrics: this.latestMetrics,
       // Phase 9 Computer Vision
@@ -1179,9 +1215,11 @@ export class SimulationEngine {
   // Scenario 4: Resource Conflict & Coast Guard Escalation
   public scenarioPhase6ResourceExhaustion(): void {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 2.1;
-    env.waterCurrent = 1.4;
+    this.setManualEnvironment({
+      waveHeight: 2.1,
+      waterCurrent: 1.4,
+      currentSpeed: 1.4,
+    });
 
     // Set 2 of 3 Lifeguards to UNAVAILABLE
     const rm = this.emergencyEngine.getResourceManager();
@@ -1223,9 +1261,11 @@ export class SimulationEngine {
   // Phase 5 Backward-Compatible Methods
   public scenarioPhase5LowRisk = () => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 0.6;
-    env.waterCurrent = 0.2;
+    this.setManualEnvironment({
+      waveHeight: 0.6,
+      waterCurrent: 0.2,
+      currentSpeed: 0.2,
+    });
     this.visitorEngine.initializeDefaultPopulation(40);
     this.visitors = this.visitorEngine.getVisitorManager().getActiveVisitors();
     this.updateAllEngines(0.1);
@@ -1233,9 +1273,11 @@ export class SimulationEngine {
   };
   public scenarioPhase5ModerateRisk = () => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 1.3;
-    env.waterCurrent = 0.55;
+    this.setManualEnvironment({
+      waveHeight: 1.3,
+      waterCurrent: 0.55,
+      currentSpeed: 0.55,
+    });
     this.visitorEngine.initializeDefaultPopulation(80);
     this.visitors = this.visitorEngine.getVisitorManager().getActiveVisitors();
     this.updateAllEngines(0.1);
@@ -1243,9 +1285,11 @@ export class SimulationEngine {
   };
   public scenarioPhase5HighRisk = () => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 1.9;
-    env.waterCurrent = 1.1;
+    this.setManualEnvironment({
+      waveHeight: 1.9,
+      waterCurrent: 1.1,
+      currentSpeed: 1.1,
+    });
     this.visitorEngine.initializeDefaultPopulation(120);
     this.visitors = this.visitorEngine.getVisitorManager().getActiveVisitors();
     this.updateAllEngines(0.1);
@@ -1258,9 +1302,11 @@ export class SimulationEngine {
   // Test Cases & Triggers
   public testCaseA = () => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 2.1;
-    env.waterCurrent = 1.4;
+    this.setManualEnvironment({
+      waveHeight: 2.1,
+      waterCurrent: 1.4,
+      currentSpeed: 1.4,
+    });
     this.visitorEngine.getVisitorManager().clear();
     this.visitors = [];
     this.updateAllEngines(0.1);
@@ -1268,9 +1314,11 @@ export class SimulationEngine {
   };
   public testCaseB = () => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 2.1;
-    env.waterCurrent = 1.4;
+    this.setManualEnvironment({
+      waveHeight: 2.1,
+      waterCurrent: 1.4,
+      currentSpeed: 1.4,
+    });
     const sz1 = this.beach.zones.find((z) => z.id === 'SZ-01') || this.beach.zones[0];
     const vm = this.visitorEngine.getVisitorManager();
     vm.clear();
@@ -1289,23 +1337,22 @@ export class SimulationEngine {
   public testCaseC = () => this.scenarioPhase6SwimmerRescue();
 
   public triggerWaveSpike = (heightM: number = 2.3) => {
-    this.envEngine.getEnvironment().waveHeight = heightM;
-    this.updateAllEngines(0.1);
-    this.notifyListeners(this.getState());
+    this.setManualEnvironment({ waveHeight: heightM });
   };
   public triggerCurrentSpike = (currentMps: number = 0.85) => {
-    this.envEngine.getEnvironment().waterCurrent = currentMps;
-    this.updateAllEngines(0.1);
-    this.notifyListeners(this.getState());
+    this.setManualEnvironment({
+      waterCurrent: currentMps,
+      currentSpeed: currentMps,
+      ripProbability: currentMps > 0.8 ? 0.9 : 0.3,
+    });
   };
   public triggerWeatherSquall = () => {
-    const env = this.envEngine.getEnvironment();
-    env.weather = 'STORM';
-    env.windSpeed = 38.0;
-    env.visibility = 2.0;
-    env.waveHeight = 2.2;
-    this.updateAllEngines(0.1);
-    this.notifyListeners(this.getState());
+    this.setManualEnvironment({
+      weather: 'STORM',
+      windSpeed: 38.0,
+      visibility: 2.0,
+      waveHeight: 2.2,
+    });
   };
 
   // ==========================================
@@ -1319,12 +1366,14 @@ export class SimulationEngine {
    */
   public scenarioPhase7CompoundCrisis = (): void => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 2.4;
-    env.waterCurrent = 1.5;
-    env.ripProbability = 0.92;
-    env.visibility = 2.5;
-    env.weather = 'RAIN';
+    this.setManualEnvironment({
+      waveHeight: 2.4,
+      waterCurrent: 1.5,
+      currentSpeed: 1.5,
+      ripProbability: 0.92,
+      visibility: 2.5,
+      weather: 'RAIN',
+    });
 
     // Inject sensory & camera failures
     this.failureEngine.injectFailure(
@@ -1339,7 +1388,7 @@ export class SimulationEngine {
       'CCTV Optical Vision Model Offline',
       'Vision tracking degraded due to rain and network lag',
       'MEDIUM',
-      'CCTV-01'
+      'CAM-01'
     );
 
     // Populate beach with 120 visitors
@@ -1388,8 +1437,11 @@ export class SimulationEngine {
    */
   public scenarioPhase7SensorConflict = (): void => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waterCurrent = 1.2;
+    this.setManualEnvironment({
+      waterCurrent: 1.2,
+      currentSpeed: 1.2,
+      waveHeight: 1.95,
+    });
 
     this.failureEngine.injectFailure(
       'CONFLICTING_SENSORS',
@@ -1397,9 +1449,6 @@ export class SimulationEngine {
       'Buoy 01 (2.3m) vs Sensor 02 (0.8m) vs Optical Vision (2.1m)',
       'HIGH'
     );
-
-    // Consensus resolved value is 1.95m
-    env.waveHeight = 1.95;
 
     this.updateAllEngines(0.1);
     this.notifyListeners(this.getState());
@@ -1410,9 +1459,11 @@ export class SimulationEngine {
    */
   public scenarioPhase7GPSDrift = (): void => {
     this.reset();
-    const env = this.envEngine.getEnvironment();
-    env.waveHeight = 2.0;
-    env.waterCurrent = 1.3;
+    this.setManualEnvironment({
+      waveHeight: 2.0,
+      waterCurrent: 1.3,
+      currentSpeed: 1.3,
+    });
 
     this.failureEngine.injectFailure(
       'GPS_ERROR',
@@ -1469,7 +1520,7 @@ export class SimulationEngine {
    */
   public triggerChaosMonkey = (): void => {
     const candidates: Array<{ type: FailureType; name: string; desc: string; target?: string; params?: any }> = [
-      { type: 'CAMERA_FAILURE', name: 'CCTV Camera Glitch', desc: 'Optical feed lost', target: 'CCTV-01' },
+      { type: 'CAMERA_FAILURE', name: 'CCTV Camera Glitch', desc: 'Optical feed lost', target: 'CAM-01' },
       { type: 'GPS_ERROR', name: 'GPS Ionospheric Drift', desc: '±35m coordinate error', params: { errorRadius: 35 } },
       { type: 'SENSOR_FAILURE', name: 'Wave Sensor Failure', desc: 'Telemetry timeout', target: 'WAVE_SENSOR' },
       { type: 'DRONE_FAILURE', name: 'Drone Low Battery', desc: 'DRONE-01 returning to dock', target: 'DRONE-01' },

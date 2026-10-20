@@ -36,7 +36,7 @@ export const IoTCommandCenter: React.FC<IoTCommandCenterProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-              PHASE 12 • DIGITAL TWIN FOUNDATION
+              DIGITAL TWIN FOUNDATION
             </span>
             <span className="text-xs text-slate-400 font-mono">Unified Ingestion Pipeline</span>
           </div>

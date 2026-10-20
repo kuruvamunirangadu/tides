@@ -87,8 +87,13 @@ export class ActionExecutor {
             );
 
             inZoneVisitors.forEach((v) => {
-              // Compliant bathers in water head for the dry beach
-              if (v.position.y > 250 && v.behavior.warningResponse > 0.25) {
+              // Compliant bathers in water head for the dry beach (distressed bathers cannot self-evacuate)
+              if (
+                v.position.y > 250 &&
+                v.behavior.warningResponse > 0.25 &&
+                v.state !== 'DISTRESS' &&
+                v.state !== 'STRUGGLING'
+              ) {
                 v.state = 'WALKING';
                 v.targetPosition = {
                   x: v.position.x + (Math.random() - 0.5) * 40,

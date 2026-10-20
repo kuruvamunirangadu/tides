@@ -75,19 +75,16 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
     <div className="bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-800 p-4 shadow-xl flex flex-col justify-between h-full">
       <div>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <Siren className="w-4 h-4 animate-pulse" />
+        <div className="flex flex-col gap-1.5 border-b border-slate-800 pb-2 mb-2">
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="p-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
+                <Siren className="w-3.5 h-3.5 animate-pulse" />
+              </div>
+              <h3 className="font-bold text-xs text-slate-100 truncate">Emergency Response Engine</h3>
             </div>
-            <div>
-              <h3 className="font-semibold text-sm text-slate-200">Emergency Response Engine</h3>
-              <p className="text-[11px] text-slate-400">Phase 6: Multi-agency dispatch & rescue progression</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
             <span
-              className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+              className={`px-1.5 py-0.5 text-[9px] font-bold rounded-full shrink-0 font-mono ${
                 activeIncidents.length > 0
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
                   : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
@@ -96,110 +93,112 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
               {activeIncidents.length} Active Ops
             </span>
           </div>
+          <p className="text-[10px] text-slate-400 leading-tight">Multi-agency dispatch & rescue progression</p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="grid grid-cols-3 gap-1 p-0.5 bg-slate-950 rounded-lg text-[9px] font-bold text-center mb-2">
           <button
             onClick={() => setActiveTab('operations')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`py-1 px-1 rounded cursor-pointer transition truncate ${
               activeTab === 'operations'
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                ? 'bg-rose-500 text-white shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Live Rescues ({activeIncidents.length})
+            Rescues ({activeIncidents.length})
           </button>
           <button
             onClick={() => setActiveTab('fleet')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`py-1 px-1 rounded cursor-pointer transition truncate ${
               activeTab === 'fleet'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Unified Fleet ({resources.length})
+            Fleet ({resources.length})
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`py-1 px-1 rounded cursor-pointer transition truncate ${
               activeTab === 'analytics'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                ? 'bg-purple-500 text-white shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Analytics & Timers
+            Analytics
           </button>
         </div>
 
         {/* Tab 1: Live Rescues & Emergency Operations */}
         {activeTab === 'operations' && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Dynamic LED Warning Board Banners */}
             {boardStates.some((b) => b.isFlashing) && (
-              <div className="p-2 rounded-lg bg-slate-800/90 border border-amber-500/40 flex items-center justify-between text-xs">
-                <span className="font-mono text-amber-300 font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <div className="p-1.5 rounded-lg bg-slate-800/90 border border-amber-500/40 flex flex-col gap-0.5 text-left">
+                <span className="font-mono text-amber-300 font-bold flex items-center gap-1 text-[10px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
                   LED MATRIX BOARD (ZONE A):
                 </span>
-                <span className="text-[11px] text-amber-200 font-semibold truncate max-w-[280px]">
+                <span className="text-[10px] text-amber-200 font-semibold break-words leading-tight">
                   {boardStates.find((b) => b.isFlashing)?.message}
                 </span>
               </div>
             )}
 
-            <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[260px] overflow-y-auto overflow-x-hidden [scrollbar-width:thin] scrollbar-thin pr-1 text-left">
               {activeIncidents.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-xs">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-500/50 mx-auto mb-1.5" />
                   <p className="font-medium text-slate-400">No Active Emergency Rescues</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">All beach sectors operational & clear</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">All beach sectors operational & clear</p>
                 </div>
               ) : (
                 activeIncidents.map((inc) => (
                   <div
                     key={inc.id}
-                    className="p-3 rounded-lg bg-slate-800/80 border border-slate-700 text-left space-y-2"
+                    className="p-2 rounded-lg bg-slate-800/80 border border-slate-700 text-left space-y-1.5 w-full"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-200">{inc.title}</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-[11px] font-bold text-slate-100 break-words leading-tight">{inc.title}</h4>
+                        <span className="text-[9px] text-slate-400 font-mono block mt-0.5">
                           Target Lock: {Math.round(inc.targetConfidence * 100)}% Confidence
                         </span>
                       </div>
-                      {getStatusBadge(inc.status)}
+                      <div className="shrink-0">{getStatusBadge(inc.status)}</div>
                     </div>
 
                     {/* Operational Lifecycle Timeline */}
-                    <div className="grid grid-cols-4 gap-1 text-center text-[10px] font-mono pt-1">
-                      <div className={`p-1 rounded ${inc.detectedAt ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
+                    <div className="grid grid-cols-4 gap-0.5 text-center text-[8px] font-mono font-bold">
+                      <div className={`p-0.5 rounded ${inc.detectedAt ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
                         1. LOCATE ✓
                       </div>
-                      <div className={`p-1 rounded ${inc.dispatchedAt ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'}`}>
+                      <div className={`p-0.5 rounded ${inc.dispatchedAt ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'}`}>
                         2. DISPATCH ✓
                       </div>
-                      <div className={`p-1 rounded ${inc.arrivedAt ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-500'}`}>
+                      <div className={`p-0.5 rounded ${inc.arrivedAt ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-500'}`}>
                         3. INTERVENE
                       </div>
-                      <div className={`p-1 rounded ${inc.personSecuredAt ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-500'}`}>
+                      <div className={`p-0.5 rounded ${inc.personSecuredAt ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-500'}`}>
                         4. SECURED
                       </div>
                     </div>
 
                     {/* Assigned Assets */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-300 border-t border-slate-700/50">
-                      <span className="text-slate-400">Assigned Units:</span>
-                      {inc.assignedResourceIds.map((resId) => (
-                        <span
-                          key={resId}
-                          className="px-1.5 py-0.5 rounded bg-slate-700/70 border border-slate-600 font-mono font-semibold flex items-center gap-1"
-                        >
-                          {getResourceIcon(resources.find((r) => r.id === resId)?.type || '')}
-                          {resId}
-                        </span>
-                      ))}
-                    </div>
+                    {inc.assignedResourceIds.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 pt-1 text-[9px] text-slate-300 border-t border-slate-700/50">
+                        <span className="text-slate-400">Assigned:</span>
+                        {inc.assignedResourceIds.map((resId) => (
+                          <span
+                            key={resId}
+                            className="px-1 py-0.2 rounded bg-slate-700/70 border border-slate-600 font-mono font-semibold"
+                          >
+                            {resId}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}

@@ -11,7 +11,7 @@ from typing import Set
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import beach, health, incidents, metrics, simulation, telemetry, vision, audio
+from app.api import beach, health, incidents, metrics, simulation, telemetry, vision, audio, perception, calibration, emergency, regional, operations, wristband
 from app.simulation.simulator import BeachSimulator
 
 # Global Simulator Instance
@@ -92,6 +92,12 @@ app.include_router(metrics.router, prefix="/api")
 app.include_router(telemetry.router)
 app.include_router(vision.router)
 app.include_router(audio.router)
+app.include_router(perception.router)
+app.include_router(calibration.router, prefix="/api")
+app.include_router(emergency.router, prefix="/api")
+app.include_router(regional.router, prefix="/api")
+app.include_router(operations.router, prefix="/api")
+app.include_router(wristband.router, prefix="/api")
 
 
 @app.websocket("/ws/simulation")

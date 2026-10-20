@@ -77,7 +77,7 @@ export const RiskPanel: React.FC<RiskPanelProps> = ({ riskOverview }) => {
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-            Operational Risk Engine (Phase 3)
+            Operational Risk Engine
           </h3>
         </div>
 

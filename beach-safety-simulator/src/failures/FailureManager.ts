@@ -182,4 +182,8 @@ export class FailureManager {
   public getSensorConflict(): SensorConflict | undefined {
     return this.activeConflict;
   }
+
+  public getGPSErrorMeters(): number {
+    return this.gpsErrorMeters;
+  }
 }

@@ -81,7 +81,7 @@ export const FailureLab: React.FC<FailureLabProps> = ({
             </div>
             <div>
               <h3 className="font-semibold text-sm text-slate-200">Failure & Resilience Lab</h3>
-              <p className="text-[11px] text-slate-400">Phase 7: Fault injection, uncertainty & fallback testing</p>
+              <p className="text-[11px] text-slate-400">Fault injection, uncertainty & fallback testing</p>
             </div>
           </div>
           <div>{getDegradationBadge(fallbackStrategy.activeLevel)}</div>
@@ -154,7 +154,7 @@ export const FailureLab: React.FC<FailureLabProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <button
-                  onClick={() => toggleFailure('CAMERA_FAILURE', 'AI Optical Camera Offline', 'CCTV vision model unavailable', 'CCTV-01')}
+                  onClick={() => toggleFailure('CAMERA_FAILURE', 'AI Optical Camera Offline', 'CCTV vision model unavailable', 'CAM-01')}
                   className={`p-2 rounded-lg border text-left text-xs transition-all cursor-pointer ${
                     isTypeActive('CAMERA_FAILURE')
                       ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold'

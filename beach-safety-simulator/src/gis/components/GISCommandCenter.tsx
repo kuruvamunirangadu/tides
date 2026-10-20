@@ -75,7 +75,7 @@ export const GISCommandCenter: React.FC<GISCommandCenterProps> = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              Geospatial GIS & Geofencing Command Center (Phase 11)
+              Geospatial GIS & Geofencing Command Center
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">
                 WGS84 Real-World Coastal Geometries
               </span>
