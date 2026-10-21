@@ -27,6 +27,7 @@ import {
 
 import { BeachPresetId } from '../models/Beach';
 import { COASTAL_BEACH_PRESETS } from '../data/beachPresets';
+import { RealTimeRiskProgressionChart } from './RealTimeRiskProgressionChart';
 
 interface ExperimentControlLabProps {
   environment: Environment;
@@ -1012,42 +1013,8 @@ export const ExperimentControlLab: React.FC<ExperimentControlLabProps> = ({
               </div>
             </div>
 
-            {/* Real-time Risk History Curve */}
-            <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  Real-time Risk Progression Curve
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">{riskHistory.length} Samples</span>
-              </div>
-
-              {riskHistory.length > 0 ? (
-                <div className="h-32 flex items-end gap-1 pt-4 px-1 border-b border-l border-slate-800">
-                  {riskHistory.slice(-25).map((entry, idx) => {
-                    const heightPct = Math.min(100, Math.max(5, entry.riskScore));
-                    const barColor =
-                      entry.riskScore >= 80 ? 'bg-red-500' : entry.riskScore >= 60 ? 'bg-orange-500' : entry.riskScore >= 40 ? 'bg-amber-400' : 'bg-emerald-400';
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                        <div
-                          className={`w-full ${barColor} rounded-t transition-all`}
-                          style={{ height: `${heightPct}%` }}
-                        />
-                        {/* Hover Tooltip */}
-                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 border border-slate-700 text-[9px] font-mono text-white p-1 rounded whitespace-nowrap z-30 shadow-lg">
-                          {entry.time}: {entry.riskScore}/100 ({entry.primaryCause})
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="h-32 flex items-center justify-center text-slate-500 font-mono text-xs">
-                  Run simulation to record real-time risk progression curve...
-                </div>
-              )}
-            </div>
+            {/* Real-time Risk History Curve & Spline Visualizer */}
+            <RealTimeRiskProgressionChart riskHistory={riskHistory} />
           </div>
         </div>
       )}

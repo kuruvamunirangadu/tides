@@ -138,7 +138,7 @@ export const RescueTimelineHUD: React.FC<RescueTimelineHUDProps> = ({
   const currentStageIndex = getStageIndex(activeMission?.stage);
 
   return (
-    <div className="absolute top-16 right-3 z-30 w-72 sm:w-80 pointer-events-auto max-h-[85vh] overflow-y-auto font-mono text-xs select-none">
+    <div className="absolute top-28 right-3 z-30 w-72 sm:w-80 pointer-events-auto max-h-[80vh] overflow-y-auto font-mono text-xs select-none">
       <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-3.5 shadow-2xl space-y-3 text-left">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">

@@ -834,14 +834,14 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
 
       {/* Milestone 5: Spatial Audio Mixer HUD */}
       {isSpatialAudioHUDOpen && (
-        <div className="absolute top-16 right-3 z-30 pointer-events-auto">
+        <div className="absolute top-28 right-3 z-30 pointer-events-auto">
           <SpatialAudioHUD />
         </div>
       )}
 
-      {/* 3D Viewport Tactical Header Bar (Single Sleek Row) */}
+      {/* 3D Viewport Tactical Header Bar (Row 2: Cleanly Below Simulation Modes Bar) */}
       {!isCleanView ? (
-        <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
+        <div className="absolute top-14 left-2.5 right-2.5 z-20 flex items-center justify-between gap-2 pointer-events-none">
           {/* Left: Camera Mode Selector */}
           <div className="pointer-events-auto flex items-center gap-2">
             <CameraModeSelector />

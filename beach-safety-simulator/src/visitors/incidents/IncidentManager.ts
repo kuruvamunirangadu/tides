@@ -59,9 +59,32 @@ export class IncidentManager {
     densityStats: Map<string, ZoneDensityStats>,
     currentTime: number
   ): Incident[] {
-    // 1. Swimmer Distress Incidents
-    const distressedVisitors = visitors.filter((v) => v.active && v.state === 'DISTRESS');
+    // 1. Swimmer Distress Incidents (Rapid Early Life-Safety Detection)
+    const distressedVisitors = visitors.filter(
+      (v) =>
+        v.active &&
+        (v.state === 'DISTRESS' ||
+          (v.distressLevel != null && v.distressLevel > 0.55) ||
+          (v.fatigue != null && v.fatigue > 0.70 && v.position.y >= 240) ||
+          (v.state === 'STRUGGLING' && v.position.y >= 265) ||
+          Boolean(v.distressState?.assistanceRequired))
+    );
     distressedVisitors.forEach((v) => {
+      // Synchronize state to DISTRESS immediately for fast multi-agency response
+      if (v.state !== 'DISTRESS') {
+        v.state = 'DISTRESS';
+        v.distressLevel = Math.max(0.85, v.distressLevel ?? 0.85);
+        if (!v.distressState) {
+          v.distressState = {
+            level: v.distressLevel,
+            cause: 'SWIMMER_DISTRESS' as any,
+            startedAt: currentTime,
+            location: { ...v.position },
+            assistanceRequired: true,
+          };
+        }
+      }
+
       const existing = Array.from(this.activeIncidents.values()).find(
         (inc) => inc.active && inc.type === 'DISTRESS' && inc.visitorIds.includes(v.id)
       );

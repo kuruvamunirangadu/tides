@@ -793,6 +793,7 @@ export const App: React.FC = () => {
             actions={state.actions}
             resourceState={state.resourceState}
             decisionLogs={state.decisionLogs}
+            riskHistory={state.riskHistory || []}
           />
         </div>
       </div>

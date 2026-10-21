@@ -21,9 +21,9 @@ export class DistressEngine {
 
     visitor.distressLevel = risk;
 
-    // State transitions
+    // State transitions (Early life-safety detection)
     if (visitor.state === 'SWIMMING' || visitor.state === 'DRIFTING') {
-      if (risk > 0.75) {
+      if (risk > 0.58) {
         visitor.state = 'DISTRESS';
         visitor.distressState = {
           level: risk,
@@ -32,11 +32,11 @@ export class DistressEngine {
           location: { ...visitor.position },
           assistanceRequired: true,
         };
-      } else if (risk > 0.45) {
+      } else if (risk > 0.35) {
         visitor.state = 'STRUGGLING';
       }
     } else if (visitor.state === 'STRUGGLING') {
-      if (risk > 0.65) {
+      if (risk > 0.48) {
         visitor.state = 'DISTRESS';
         visitor.distressState = {
           level: risk,

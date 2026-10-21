@@ -73,7 +73,7 @@ export const RipCurrentScenarioHUD: React.FC<RipCurrentScenarioHUDProps> = ({
     <>
       {/* 1. Emergency Distress Alert Banners (High-Priority Real-Time Notifications) */}
       {incidents.length > 0 && (
-        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] space-y-1.5 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] space-y-1.5 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
           {incidents.map((incident) => {
             const swimmer = visitors.find((v) => v.id === incident.visitorId);
             return (
@@ -123,8 +123,8 @@ export const RipCurrentScenarioHUD: React.FC<RipCurrentScenarioHUDProps> = ({
         </div>
       )}
 
-      {/* 2. Interactive Scenario Controller Widget (Floating Left) */}
-      <div className="absolute top-16 left-3 z-20 flex flex-col gap-2 pointer-events-auto max-w-xs font-mono text-xs">
+      {/* 2. Interactive Scenario Controller Widget (Floating Left - Row 3 cleanly below Row 2) */}
+      <div className="absolute top-28 left-2.5 z-20 flex flex-col gap-2 pointer-events-auto max-w-xs font-mono text-xs">
         <div className="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-700/80 shadow-2xl backdrop-blur-md space-y-2 text-left">
           <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
             <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-xs uppercase">

@@ -15,6 +15,7 @@ import { Environment } from '../../models/Environment';
 import { DistressIncidentEvent } from '../hazards/rip3d.types';
 import { RescueCoordinator } from './RescueCoordinator';
 import { RipCurrentSimulator } from '../hazards/RipCurrentSimulator';
+import { DroneRescueDispatchManager } from '../../drones/rescue/DroneRescueDispatchManager';
 
 export interface SwimmerEvaluationSummary {
   totalEvaluated: number;
@@ -30,7 +31,7 @@ export class PerSwimmerRescueEvaluator {
   private static instance: PerSwimmerRescueEvaluator | null = null;
 
   private lastEvaluationTime: number = 0;
-  private readonly EVALUATION_INTERVAL_SECONDS: number = 0.3; // 300ms rate-limited check
+  private readonly EVALUATION_INTERVAL_SECONDS: number = 0.1; // 100ms ultra-rapid life-safety check
 
   // Map of evaluated visitor IDs to last known incident ID
   private evaluatedVisitorIncidents: Map<string, string> = new Map();
@@ -51,6 +52,27 @@ export class PerSwimmerRescueEvaluator {
   }
 
   /**
+   * Clears evaluated lock for a rescued or recovered swimmer
+   */
+  public clearEvaluated(visitorId: string): void {
+    this.evaluatedVisitorIncidents.delete(visitorId);
+  }
+
+  /**
+   * Authoritative multi-criteria distress detection:
+   * Triggers immediate rescue on acute distress, high fatigue in deep water, or drowning struggle.
+   */
+  public isSwimmerInDistress(swimmer: Visitor, shorelineY: number): boolean {
+    return (
+      swimmer.state === 'DISTRESS' ||
+      (swimmer.distressLevel != null && swimmer.distressLevel > 0.55) ||
+      (swimmer.fatigue != null && swimmer.fatigue > 0.70 && swimmer.position.y > shorelineY) ||
+      (swimmer.state === 'STRUGGLING' && swimmer.position.y > shorelineY + 25) ||
+      Boolean(swimmer.distressState?.assistanceRequired)
+    );
+  }
+
+  /**
    * Evaluates a single swimmer for distress and idempotently returns an incident event if triggered.
    */
   public evaluateSwimmer(
@@ -59,13 +81,28 @@ export class PerSwimmerRescueEvaluator {
     beach: Beach,
     _environment: Environment
   ): DistressIncidentEvent | null {
-    if (!swimmer.active || swimmer.state !== 'DISTRESS') {
+    const shorelineY = beach.shorelineY || 280;
+    if (!swimmer.active || !this.isSwimmerInDistress(swimmer, shorelineY)) {
       return null;
+    }
+
+    // Ensure state is promoted to DISTRESS immediately
+    if (swimmer.state !== 'DISTRESS') {
+      swimmer.state = 'DISTRESS';
+      swimmer.distressLevel = Math.max(0.85, swimmer.distressLevel ?? 0.85);
+      if (!swimmer.distressState) {
+        swimmer.distressState = {
+          level: swimmer.distressLevel,
+          cause: 'SWIMMER_DISTRESS' as any,
+          startedAt: currentTimeSec,
+          location: { ...swimmer.position },
+          assistanceRequired: true,
+        };
+      }
     }
 
     const coordinator = RescueCoordinator.getInstance();
     const ripSim = RipCurrentSimulator.getInstance();
-    const shorelineY = beach.shorelineY || 280;
 
     // Check if an incident already exists
     const ripInc = ripSim.getActiveIncidents().find((inc) => inc.visitorId === swimmer.id && !inc.resolved);
@@ -89,8 +126,8 @@ export class PerSwimmerRescueEvaluator {
       hazardId: 'HAZ-SURF-01',
       hazardType: 'RIP_CURRENT',
       onsetSimTime: currentTimeSec,
-      alertSimTime: currentTimeSec + 1.0,
-      detectionLatencySec: 1.0,
+      alertSimTime: currentTimeSec + 0.2,
+      detectionLatencySec: 0.2,
       timeDisplay: nowStr,
       position3D: { x: posX3D, y: -0.22, z: posZ3D },
       position2D: { x: swimmer.position.x, y: swimmer.position.y },
@@ -104,6 +141,11 @@ export class PerSwimmerRescueEvaluator {
 
     if (coordinator.autoDispatchEnabled) {
       coordinator.handleDistressIncident(incident, [swimmer], beach);
+      try {
+        DroneRescueDispatchManager.getInstance().proposeAssignment(incident, performance.now());
+      } catch {
+        // graceful non-blocking fallback
+      }
     }
 
     return incident;
@@ -141,9 +183,25 @@ export class PerSwimmerRescueEvaluator {
     });
 
     for (const swimmer of waterBathers) {
+      const isDistressed = this.isSwimmerInDistress(swimmer, shorelineY);
+
       // 1. Categorize individual state
-      if (swimmer.state === 'DISTRESS' || (swimmer.distressLevel && swimmer.distressLevel > 0.75)) {
+      if (isDistressed) {
         distressCount++;
+        // Promote to DISTRESS state immediately so visuals and engines respond in sync
+        if (swimmer.state !== 'DISTRESS') {
+          swimmer.state = 'DISTRESS';
+          swimmer.distressLevel = Math.max(0.85, swimmer.distressLevel ?? 0.85);
+          if (!swimmer.distressState) {
+            swimmer.distressState = {
+              level: swimmer.distressLevel,
+              cause: 'SWIMMER_DISTRESS' as any,
+              startedAt: currentTimeSec,
+              location: { ...swimmer.position },
+              assistanceRequired: true,
+            };
+          }
+        }
       } else if (
         swimmer.state === 'STRUGGLING' ||
         (swimmer.position.y > shorelineY + 45 && (swimmer.distressLevel || 0) > 0.35)
@@ -154,15 +212,16 @@ export class PerSwimmerRescueEvaluator {
       }
 
       // 2. Swimmer in distress: ensure incident & dispatch exist
-      if (swimmer.state === 'DISTRESS') {
+      if (isDistressed) {
         // Check if an incident already exists in RipCurrentSimulator
         const ripInc = ripSim.getActiveIncidents().find((inc) => inc.visitorId === swimmer.id && !inc.resolved);
 
         // Check if a mission already exists in RescueCoordinator
         const existingMission = coordinator.getActiveMissions().find((m) => m.visitorId === swimmer.id);
         const isQueued = coordinator.getQueuedIncidents().some((inc) => inc.visitorId === swimmer.id);
+        const alreadyEvaluated = this.evaluatedVisitorIncidents.has(swimmer.id);
 
-        if (!existingMission && !isQueued) {
+        if (!existingMission && !isQueued && !alreadyEvaluated) {
           const nowStr = new Date().toTimeString().split(' ')[0];
           const incidentId = ripInc?.incidentId || `INC-SWIM-${swimmer.id.slice(-4)}-${Math.floor(Math.random() * 900 + 100)}`;
 
@@ -177,8 +236,8 @@ export class PerSwimmerRescueEvaluator {
             hazardId: 'HAZ-SURF-01',
             hazardType: 'RIP_CURRENT',
             onsetSimTime: currentTimeSec,
-            alertSimTime: currentTimeSec + 1.0,
-            detectionLatencySec: 1.0,
+            alertSimTime: currentTimeSec + 0.2,
+            detectionLatencySec: 0.2,
             timeDisplay: nowStr,
             position3D: { x: posX3D, y: -0.22, z: posZ3D },
             position2D: { x: swimmer.position.x, y: swimmer.position.y },
@@ -192,6 +251,11 @@ export class PerSwimmerRescueEvaluator {
 
           if (coordinator.autoDispatchEnabled) {
             coordinator.handleDistressIncident(incident, visitors, beach);
+            try {
+              DroneRescueDispatchManager.getInstance().proposeAssignment(incident, performance.now());
+            } catch {
+              // graceful non-blocking fallback
+            }
           }
         }
       }

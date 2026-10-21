@@ -13,7 +13,7 @@ export class EmergencyResourceManager {
     this.resources.clear();
 
     const initialFleet: EmergencyResource[] = [
-      // 1. Lifeguard Units
+      // 1. Lifeguard Units (Rapid Beach Sprint & Surf Launch)
       {
         id: 'LG-01',
         name: 'Lifeguard Rescue Unit 01 (West)',
@@ -21,7 +21,7 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 200, y: 150 },
         basePosition: { x: 200, y: 150 },
-        speed: 45,
+        speed: 85,
         responseRadius: 280,
         color: '#f59e0b',
       },
@@ -32,7 +32,7 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 600, y: 150 },
         basePosition: { x: 600, y: 150 },
-        speed: 45,
+        speed: 85,
         responseRadius: 280,
         color: '#f59e0b',
       },
@@ -43,12 +43,12 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 1000, y: 150 },
         basePosition: { x: 1000, y: 150 },
-        speed: 45,
+        speed: 85,
         responseRadius: 280,
         color: '#f59e0b',
       },
 
-      // 2. High-Speed Rescue Watercraft / Jet Boat
+      // 2. High-Speed Rescue Watercraft / Jet Boat (Rapid Sea Intercept)
       {
         id: 'BOAT-01',
         name: 'Rapid Response Rescue Boat (Sea Patrol)',
@@ -56,13 +56,13 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 150, y: 340 },
         basePosition: { x: 150, y: 340 },
-        speed: 80,
+        speed: 160,
         responseRadius: 900,
         batteryOrFuel: 100,
         color: '#0284c7',
       },
 
-      // 3. Autonomous Aerial Lifesaver Drones
+      // 3. Autonomous Aerial Lifesaver Drones (Instant Flotation Drop)
       {
         id: 'DRONE-01',
         name: 'Autonomous UAV Lifesaver Alpha',
@@ -70,7 +70,7 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 300, y: 40 },
         basePosition: { x: 300, y: 40 },
-        speed: 135,
+        speed: 220,
         responseRadius: 1200,
         batteryOrFuel: 98,
         payloadReady: true,
@@ -83,7 +83,7 @@ export class EmergencyResourceManager {
         status: 'AVAILABLE',
         position: { x: 900, y: 40 },
         basePosition: { x: 900, y: 40 },
-        speed: 135,
+        speed: 220,
         responseRadius: 1200,
         batteryOrFuel: 95,
         payloadReady: true,

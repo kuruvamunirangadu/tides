@@ -5,6 +5,7 @@ import { soundEngine } from '../../audio/BeachSoundEngine';
 import { IncidentEventRecorder } from '../../impact-lab/replay/IncidentEventRecorder';
 import { DistressIncidentEvent } from '../hazards/rip3d.types';
 import { RipCurrentSimulator } from '../hazards/RipCurrentSimulator';
+import { PerSwimmerRescueEvaluator } from './PerSwimmerRescueEvaluator';
 import {
   RescueMissionDossier,
   RescueOperationMetrics,
@@ -39,7 +40,7 @@ export class RescueCoordinator {
   public missionHistory: RescueMissionDossier[] = [];
   public autoDispatchEnabled: boolean = true;
 
-  private readonly ASSISTANCE_DURATION_SECONDS = 3.5;
+  private readonly ASSISTANCE_DURATION_SECONDS = 1.2;
   private listeners: Set<() => void> = new Set();
 
   public static getInstance(): RescueCoordinator {
@@ -232,8 +233,14 @@ export class RescueCoordinator {
           const shorelineY = beach.shorelineY || 280;
           const liveTargetX = (victim.position.x - 500) * 0.25;
           const liveTargetZ = -((victim.position.y - shorelineY) * 0.45);
-          res.targetX = liveTargetX;
-          res.targetZ = liveTargetZ;
+          const currDistToTarget =
+            res.targetX != null && res.targetZ != null
+              ? Math.hypot(res.currentX - res.targetX, res.currentZ - res.targetZ)
+              : Infinity;
+          if (currDistToTarget > 3.0 || res.targetX == null) {
+            res.targetX = liveTargetX;
+            res.targetZ = liveTargetZ;
+          }
         }
       }
 
@@ -287,9 +294,19 @@ export class RescueCoordinator {
           if (bather) {
             bather.state = 'BEACH';
             bather.distressLevel = 0;
-            bather.fatigue = 0.25;
+            bather.fatigue = 0.15;
             bather.position.y = 160; // Safe dry beach swash
             bather.awarenessState = 'UNAWARE';
+            if (bather.distressState) {
+              bather.distressState = undefined;
+            }
+          }
+
+          // Clear evaluated lock from PerSwimmerRescueEvaluator
+          try {
+            PerSwimmerRescueEvaluator.getInstance().clearEvaluated(mission.visitorId);
+          } catch {
+            // non-blocking
           }
 
           // Calculate verified response metrics
@@ -363,6 +380,11 @@ export class RescueCoordinator {
     this.activeMissionsMap.clear();
     this.unassignedIncidents.clear();
     this.assistanceTimers.clear();
+    try {
+      PerSwimmerRescueEvaluator.getInstance().reset();
+    } catch {
+      // non-blocking
+    }
     this.notify();
   }
 

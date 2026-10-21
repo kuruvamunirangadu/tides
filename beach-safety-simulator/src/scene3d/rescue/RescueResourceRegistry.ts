@@ -34,7 +34,7 @@ export class RescueResourceRegistry {
       standbyX: boatStandbyX,
       standbyY: 0,
       standbyZ: boatStandbyZ,
-      speedMps: 18.5, // ~36 knots high-speed emergency response
+      speedMps: 26.0, // ~50 knots high-speed emergency response
       status: 'AVAILABLE',
       assignedIncidentId: null,
       color: '#0284c7',
@@ -55,7 +55,7 @@ export class RescueResourceRegistry {
       standbyX: lg1StandbyX,
       standbyY: lg1StandbyY,
       standbyZ: lg1StandbyZ,
-      speedMps: 7.2, // ~26 km/h beach sprint
+      speedMps: 11.5, // Rapid beach sprint & surf entry
       status: 'AVAILABLE',
       assignedIncidentId: null,
       color: '#f59e0b',
@@ -76,7 +76,7 @@ export class RescueResourceRegistry {
       standbyX: lg2StandbyX,
       standbyY: lg2StandbyY,
       standbyZ: lg2StandbyZ,
-      speedMps: 7.2,
+      speedMps: 11.5,
       status: 'AVAILABLE',
       assignedIncidentId: null,
       color: '#f59e0b',
@@ -96,7 +96,7 @@ export class RescueResourceRegistry {
       standbyX: boat2StandbyX,
       standbyY: 0,
       standbyZ: boat2StandbyZ,
-      speedMps: 16.0,
+      speedMps: 22.0,
       status: 'AVAILABLE',
       assignedIncidentId: null,
       color: '#0284c7',

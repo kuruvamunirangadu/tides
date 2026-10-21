@@ -43,6 +43,8 @@ import { RescueMissionReplayRenderer } from './canvas/RescueMissionReplayRendere
 import { OperationalTwinRenderer } from './canvas/OperationalTwinRenderer';
 import { IncidentEventRecorder } from '../impact-lab/replay/IncidentEventRecorder';
 import { BeachScene3D } from '../scene3d/BeachScene3D';
+import { WristbandOperationsHUD } from '../wristbands/components/WristbandOperationsHUD';
+import { WristbandRegistry } from '../wristbands/WristbandRegistry';
 
 export type CanvasViewMode = 'tactical' | 'satellite' | 'heat' | 'sat_heat' | 'thermal' | 'hydrodynamic' | 'beach3d';
 
@@ -968,6 +970,18 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
   const [selectedForecastHorizon, setSelectedForecastHorizon] = useState<number>(180);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [showWristbandHUD, setShowWristbandHUD] = useState<boolean>(false);
+  const [activeWristbandSosCount, setActiveWristbandSosCount] = useState<number>(0);
+
+  useEffect(() => {
+    const checkWristbandState = () => {
+      const sosCount = WristbandRegistry.getInstance().getWristbands().filter((w) => w.isSosActive).length;
+      setActiveWristbandSosCount(sosCount);
+    };
+    checkWristbandState();
+    const interval = setInterval(checkWristbandState, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Preload authentic high-resolution Rushikonda aerial imagery
   useEffect(() => {
@@ -2635,12 +2649,13 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
   return (
     <div className="relative w-full min-h-[580px] h-full rounded-2xl overflow-hidden border border-slate-800/90 bg-slate-950 shadow-2xl flex flex-col">
-      {/* Top Floating Glassmorphic View Controller Bar */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+      {/* Top Floating Glassmorphic View Controller Bar (Row 1: Master Simulation Switcher - Always Visible & Unobscured) */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         {/* Left: View Mode Pills (2D Tactical Modes + 3D Digital Twin - Always Visible!) */}
         <div className="flex items-center gap-1 bg-slate-900/95 p-1 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md pointer-events-auto flex-wrap">
           <button
             onClick={() => setViewMode('beach3d')}
+            title="3D Digital Twin: Realistic WebGL 3D coastal twin with bathymetry, 3D waves, bathers, and patrol boats"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'beach3d'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-md ring-2 ring-teal-400'
@@ -2653,6 +2668,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
           <button
             onClick={() => setViewMode('tactical')}
+            title="Operational: Tactical 2D coastal safety canvas with swimmer vectors and escape paths"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'tactical'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm font-extrabold ring-2 ring-cyan-400'
@@ -2665,6 +2681,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
           <button
             onClick={() => setViewMode('heat')}
+            title="Risk Heatmap: Real-time coastal risk density heatmap (Low, Moderate, High, Critical)"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'heat'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400 font-extrabold'
@@ -2677,18 +2694,20 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
           <button
             onClick={() => setViewMode('thermal')}
+            title="Thermal FLIR: Infrared drone thermal sensor simulation showing heat signatures of bathers and distressed swimmers"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'thermal'
                 ? 'bg-rose-500 text-white shadow-sm ring-2 ring-rose-400 font-extrabold'
                 : 'text-rose-300 hover:text-rose-200 hover:bg-slate-800'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-yellow-300" />
+            <span>♨️</span>
             <span>Thermal FLIR</span>
           </button>
 
           <button
             onClick={() => setViewMode('satellite')}
+            title="Satellite Recon: High-resolution aerial satellite imagery overlay"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'satellite'
                 ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400 font-extrabold'
@@ -2701,6 +2720,7 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
 
           <button
             onClick={() => setViewMode('sat_heat')}
+            title="Sat + Heat: Satellite reconnaissance combined with risk heatmap overlay"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'sat_heat'
                 ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-400 font-extrabold'
@@ -2708,11 +2728,12 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Sat + Heat</span>
+            <span>🛰️+🔥 Sat + Heat</span>
           </button>
 
           <button
             onClick={() => setViewMode('hydrodynamic')}
+            title="Hydrodynamics: Rip current seaward jet streamlines, eddies, and wave shoaling vectors"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === 'hydrodynamic'
                 ? 'bg-teal-500 text-slate-950 shadow-sm font-extrabold ring-2 ring-teal-400'
@@ -2720,13 +2741,29 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
             }`}
           >
             <Waves className="w-3.5 h-3.5" />
-            <span>Hydrodynamics</span>
+            <span>🌊 Hydrodynamics</span>
           </button>
         </div>
 
-        {/* Right: Sound Controls, Layer Toggles & Legend */}
+        {/* Right: Sound Controls, Layer Toggles, Wristbands & Legend */}
         <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 shadow-lg backdrop-blur-md pointer-events-auto text-xs">
           <SoundControlHUD />
+
+          {/* Connected Wristbands Interactive Hub Toggle */}
+          <button
+            onClick={() => setShowWristbandHUD(!showWristbandHUD)}
+            title="Toggle Track B Connected Wristband Operations & Localized Downlink HUD"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer border ${
+              showWristbandHUD
+                ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md font-extrabold ring-2 ring-cyan-400'
+                : activeWristbandSosCount > 0
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse font-extrabold'
+                : 'text-cyan-300 hover:text-cyan-200 hover:bg-slate-800 border-transparent'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 text-cyan-400" />
+            <span>📡 Wristbands{activeWristbandSosCount > 0 ? ` (${activeWristbandSosCount} SOS)` : ''}</span>
+          </button>
 
           {viewMode !== 'beach3d' && (
             <>
@@ -2832,6 +2869,11 @@ export const BeachCanvas: React.FC<BeachCanvasProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Track B Connected Wristbands Interactive Operations Modal */}
+      {showWristbandHUD && (
+        <WristbandOperationsHUD isModal onClose={() => setShowWristbandHUD(false)} />
+      )}
 
       {/* Floating Satellite Spectral Band Selector */}
       {(viewMode === 'satellite' || viewMode === 'sat_heat') && (

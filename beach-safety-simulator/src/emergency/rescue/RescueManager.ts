@@ -38,23 +38,23 @@ export class RescueManager {
         inc.rescueStartedAt = currentTime;
       }
 
-      // 2. Progression during RESCUE_IN_PROGRESS
+      // 2. Progression during RESCUE_IN_PROGRESS (Ultra-rapid intervention)
       if (inc.status === 'RESCUE_IN_PROGRESS') {
         const rescueDuration = currentTime - (inc.rescueStartedAt || currentTime);
 
-        // First intervention: Secure the person after ~5-8 seconds on scene
-        if (rescueDuration > 6 && !inc.personSecuredAt) {
+        // Immediate intervention: Secure the person within ~1.2 seconds on scene
+        if (rescueDuration > 1.2 && !inc.personSecuredAt) {
           inc.status = 'PERSON_SECURED';
           inc.personSecuredAt = currentTime;
 
-          // Pull victim to dry shore
+          // Pull victim to dry safe beach sand immediately and clear distress
           inc.affectedVisitorIds.forEach((vId) => {
             const victim = vm.getVisitor(vId);
             if (victim && victim.active) {
               victim.state = 'BEACH';
-              victim.position = { x: victim.position.x, y: 220 }; // Safe sand
-              victim.fatigue = 0.2;
-              victim.distressLevel = 0.05;
+              victim.position = { x: victim.position.x, y: 180 }; // Safe dry sand
+              victim.fatigue = 0.1;
+              victim.distressLevel = 0;
               victim.distressState = undefined;
             }
           });
@@ -65,7 +65,7 @@ export class RescueManager {
       if (inc.status === 'PERSON_SECURED') {
         const securedDuration = currentTime - (inc.personSecuredAt || currentTime);
 
-        if (securedDuration > 4) {
+        if (securedDuration > 1.5) {
           inc.status = 'MEDICAL_ASSESSMENT';
 
           // If victim is weak or child, request paramedic ambulance support
@@ -83,8 +83,8 @@ export class RescueManager {
       if (inc.status === 'MEDICAL_ASSESSMENT') {
         const medicalDuration = currentTime - (inc.personSecuredAt || currentTime);
 
-        // Full resolution achieved after medical check (~10s total intervention)
-        if (medicalDuration > 8) {
+        // Rapid resolution achieved after medical check (~2.5s total intervention)
+        if (medicalDuration > 2.5) {
           inc.status = 'RESOLVED';
           inc.resolvedAt = currentTime;
 

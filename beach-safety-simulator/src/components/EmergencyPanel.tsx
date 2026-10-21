@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Siren,
   LifeBuoy,
@@ -12,11 +12,19 @@ import {
   Activity,
   AlertOctagon,
   Radio,
+  Wifi,
+  Battery,
+  Bell,
+  Zap,
 } from 'lucide-react';
 import { EmergencyIncident } from '../emergency/models/EmergencyIncident';
 import { EmergencyResource } from '../emergency/models/EmergencyResource';
 import { PerformanceAnalytics, ResponseMetrics } from '../emergency/models/ResponseMetrics';
 import { BoardDisplayState } from '../emergency/communication/WarningBoardManager';
+import { WristbandRegistry } from '../wristbands/WristbandRegistry';
+import { WristbandIncidentBridge } from '../wristbands/WristbandIncidentBridge';
+import { SwimmerWristband } from '../wristbands/wristband.types';
+import { SwimmerFeelingFlowPanel } from '../wristbands/components/SwimmerFeelingFlowPanel';
 
 interface EmergencyPanelProps {
   incidents: EmergencyIncident[];
@@ -33,7 +41,80 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
   analytics,
   recentMetrics,
 }) => {
-  const [activeTab, setActiveTab] = useState<'operations' | 'fleet' | 'analytics'>('operations');
+  const [activeTab, setActiveTab] = useState<'operations' | 'fleet' | 'wristbands' | 'analytics'>('operations');
+  const [wristbands, setWristbands] = useState<SwimmerWristband[]>(WristbandRegistry.getInstance().getWristbands());
+  const [wbFilter, setWbFilter] = useState<'all' | 'sos' | 'water' | 'battery'>('all');
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const update = () => {
+      setWristbands([...WristbandRegistry.getInstance().getWristbands()]);
+    };
+    update();
+    const interval = setInterval(update, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeSosCount = wristbands.filter((w) => w.isSosActive).length;
+
+  const handleTriggerSOS = (wbId: string) => {
+    const event = WristbandRegistry.getInstance().triggerSOS(wbId as any, true);
+    if (event) {
+      WristbandIncidentBridge.getInstance().handleSOSEvent(event);
+    }
+    setWristbands([...WristbandRegistry.getInstance().getWristbands()]);
+    setActionMessage(`🚨 Emergency SOS Sent from ${wbId} via IN865 Gateway`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleCancelSOS = (wbId: string) => {
+    WristbandRegistry.getInstance().cancelSOS(wbId as any);
+    setWristbands([...WristbandRegistry.getInstance().getWristbands()]);
+    setActionMessage(`✓ SOS Cleared on ${wbId}`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleSendHapticBuzz = (wbId: string) => {
+    const wb = WristbandRegistry.getInstance().getWristband(wbId as any);
+    WristbandRegistry.getInstance().updateWristband(wbId as any, {
+      vibrationPattern: 'CADENCE_BURST',
+      ledState: 'STROBE_AMBER',
+      oledMessage: 'CAUTION - RIP DETECTED',
+      lastWarningReceived: {
+        warningId: `WARN-${Date.now()}`,
+        originIncidentId: `INC-${Date.now()}`,
+        targetWristbandId: wbId as any,
+        targetVisitorId: wb ? wb.pairedVisitorId : null,
+        category: 'CAUTION',
+        title: 'Rip Hazard Proximity',
+        message: 'Rip current hazard in sector. Move toward shore.',
+        timestampMs: Date.now(),
+        expiresAtMs: Date.now() + 45000,
+        status: 'DELIVERED',
+        dispatchedByGatewayId: 'GW-TOWER-01',
+        deliveredAtMs: Date.now(),
+        retryCount: 0,
+      },
+    });
+    setWristbands([...WristbandRegistry.getInstance().getWristbands()]);
+    setActionMessage(`⚡ Downlink Haptic Buzz Sent to ${wbId}`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleAcknowledge = (wbId: string) => {
+    WristbandRegistry.getInstance().acknowledgeWarning(wbId as any);
+    setWristbands([...WristbandRegistry.getInstance().getWristbands()]);
+    setActionMessage(`✓ Swimmer Double-Tap Ack on ${wbId}`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleBroadcastToAll = () => {
+    wristbands.forEach((wb) => {
+      handleSendHapticBuzz(wb.id);
+    });
+    setActionMessage(`📢 Localized Downlink Broadcast Delivered to all ${wristbands.length} Wristbands`);
+    setTimeout(() => setActionMessage(null), 3500);
+  };
 
   const activeIncidents = incidents.filter((i) => i.status !== 'RESOLVED');
 
@@ -83,21 +164,28 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
               </div>
               <h3 className="font-bold text-xs text-slate-100 truncate">Emergency Response Engine</h3>
             </div>
-            <span
-              className={`px-1.5 py-0.5 text-[9px] font-bold rounded-full shrink-0 font-mono ${
-                activeIncidents.length > 0
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-              }`}
-            >
-              {activeIncidents.length} Active Ops
-            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {activeSosCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse font-mono">
+                  🚨 {activeSosCount} Band SOS
+                </span>
+              )}
+              <span
+                className={`px-1.5 py-0.5 text-[9px] font-bold rounded-full font-mono ${
+                  activeIncidents.length > 0
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {activeIncidents.length} Active Ops
+              </span>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 leading-tight">Multi-agency dispatch & rescue progression</p>
+          <p className="text-[10px] text-slate-400 leading-tight">Multi-agency dispatch, rescue progression & connected wristbands</p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="grid grid-cols-3 gap-1 p-0.5 bg-slate-950 rounded-lg text-[9px] font-bold text-center mb-2">
+        {/* Tab Navigation (4 Dedicated Views: Rescues, Fleet, Wristbands, Analytics) */}
+        <div className="grid grid-cols-4 gap-1 p-0.5 bg-slate-950 rounded-lg text-[9px] font-bold text-center mb-2">
           <button
             onClick={() => setActiveTab('operations')}
             className={`py-1 px-1 rounded cursor-pointer transition truncate ${
@@ -117,6 +205,20 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
             }`}
           >
             Fleet ({resources.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('wristbands')}
+            className={`py-1 px-0.5 rounded cursor-pointer transition truncate flex items-center justify-center gap-0.5 ${
+              activeTab === 'wristbands'
+                ? 'bg-teal-500 text-slate-950 shadow-sm font-black'
+                : activeSosCount > 0
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse font-extrabold'
+                : 'text-teal-400 hover:text-teal-200'
+            }`}
+            title="Track B Connected Wristband Operations & Localized Downlink Hub"
+          >
+            <Radio className="w-2.5 h-2.5" />
+            <span>Bands ({wristbands.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
@@ -243,7 +345,16 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Performance Analytics & Response Timers */}
+        {/* Tab 3: Connected Wristbands, Swimmer Feeling State & Closed-Loop Control Flow */}
+        {activeTab === 'wristbands' && (
+          <div className="space-y-2 text-left">
+            <SwimmerFeelingFlowPanel
+              selectedWristbandId="WB-105"
+            />
+          </div>
+        )}
+
+        {/* Tab 4: Performance Analytics & Response Timers */}
         {activeTab === 'analytics' && (
           <div className="space-y-3 text-left">
             {/* Stopwatch Averages Grid */}

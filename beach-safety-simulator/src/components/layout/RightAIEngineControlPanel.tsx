@@ -43,6 +43,9 @@ import { FailureLab } from '../FailureLab';
 import { HazardPanel } from '../HazardPanel';
 import { VisitorPanel } from '../VisitorPanel';
 import { EnvironmentPanel } from '../EnvironmentPanel';
+import { RealTimeRiskProgressionChart, RiskHistoryEntry } from '../RealTimeRiskProgressionChart';
+import { SwimmerFeelingFlowPanel } from '../../wristbands/components/SwimmerFeelingFlowPanel';
+import { SwimmerFeelingControlManager } from '../../wristbands/feeling/SwimmerFeelingControlManager';
 import { EmergencyPanel } from '../EmergencyPanel';
 import { DecisionPanel } from '../DecisionPanel';
 import { EmergencyIncident } from '../../emergency/models/EmergencyIncident';
@@ -83,6 +86,7 @@ export interface RightAIEngineControlPanelProps {
   actions?: ResponseAction[];
   resourceState?: ResourceState;
   decisionLogs?: DecisionLogEntry[];
+  riskHistory?: RiskHistoryEntry[];
 }
 
 export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps> = ({
@@ -115,6 +119,7 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
   actions = [],
   resourceState,
   decisionLogs = [],
+  riskHistory = [],
 }) => {
   const [activeTab, setActiveTab] = useState<'emergency_both' | 'emergency' | 'decisions' | 'ai_risk' | 'fleet' | 'hazards' | 'failures' | 'wristbands' | 'telemetry'>('emergency_both');
 
@@ -128,11 +133,15 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
   const [wbNotice, setWbNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setWristbands([...wristbandRegistry.getWristbands()]);
-    }, 1000);
+    const update = () => {
+      const liveBands = wristbandRegistry.getWristbands();
+      setWristbands([...liveBands]);
+      SwimmerFeelingControlManager.getInstance().syncWithSimulation(visitors, liveBands);
+    };
+    update();
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [visitors]);
 
   const selectedWristband = wristbands.find((w) => w.id === selectedWristbandId) || wristbands[0];
   const activeWristbandSosCount = wristbands.filter((w) => w.isSosActive).length;
@@ -352,6 +361,12 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
               resourceState={resourceState}
               historyLogs={decisionLogs}
             />
+            {/* Swimmer Distress & Closed-Loop Control Flow Monitor */}
+            <SwimmerFeelingFlowPanel
+              selectedWristbandId={selectedWristbandId}
+              onSelectWristband={(id) => setSelectedWristbandId(id)}
+              compact
+            />
           </div>
         )}
 
@@ -376,6 +391,12 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
               actions={actions}
               resourceState={resourceState}
               historyLogs={decisionLogs}
+            />
+            {/* Swimmer Distress & Closed-Loop Control Flow Monitor */}
+            <SwimmerFeelingFlowPanel
+              selectedWristbandId={selectedWristbandId}
+              onSelectWristband={(id) => setSelectedWristbandId(id)}
+              compact
             />
           </div>
         )}
@@ -448,6 +469,11 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
                 </div>
               </div>
             </div>
+
+            {/* Real-time Risk Progression Curve */}
+            {riskHistory.length > 0 && (
+              <RealTimeRiskProgressionChart riskHistory={riskHistory} compact />
+            )}
 
             {/* AI Executing Directives */}
             <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1">
@@ -871,6 +897,12 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
                 </div>
               </div>
             )}
+
+            {/* Swimmer Psychological Feeling & Closed-Loop System Control Flow Deck */}
+            <SwimmerFeelingFlowPanel
+              selectedWristbandId={selectedWristbandId}
+              onSelectWristband={(id) => setSelectedWristbandId(id)}
+            />
 
             {/* Device Fleet Selector Table */}
             <div className="space-y-1">
