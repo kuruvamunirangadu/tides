@@ -3,7 +3,7 @@ Beach geometry, zoning, and physical safety resources models.
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -96,6 +96,7 @@ class PASystem(BaseModel):
     zone_id: str
     is_broadcasting: bool = False
     current_message: Optional[str] = None
+    current_messages: Dict[str, str] = Field(default_factory=dict)
     last_broadcast_timestamp: float = 0.0
     volume_db: float = 85.0
 

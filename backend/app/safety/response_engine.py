@@ -30,6 +30,7 @@ from app.models.response import (
     SafetyResponse,
     ResponseStatus,
 )
+from app.safety.audio_engine import AudioEngine
 
 
 class ResponseEngine:
@@ -137,10 +138,22 @@ class ResponseEngine:
             for pa in beach.pa_systems:
                 if target_zone_id in ["ALL_ZONES", pa.zone_id]:
                     if current_time - pa.last_broadcast_timestamp >= cooldown:
+                        audio_hazard = decision.hazard_type
+                        if audio_hazard == "SWIMMER_DISTRESS_IN_WATER":
+                            audio_hazard = "RIP_CURRENT_SURGE"
+                        broadcast = AudioEngine.generate_broadcast(
+                            beach_id=target_zone_id,
+                            hazard_type=audio_hazard,
+                            severity=decision.severity.value,
+                        )
                         pa.is_broadcasting = True
                         pa.last_broadcast_timestamp = current_time
-                        pa.current_message = f"SAFETY ALERT: Severe hazards in {target_zone_id}. Please exit water immediately."
-                        event_logs.append(f"📢 PA Alert Broadcasted in {pa.zone_id}: '{pa.current_message}'")
+                        pa.current_messages = broadcast.messages
+                        pa.current_message = broadcast.messages["en-IN"]
+                        event_logs.append(
+                            f"PA Alert Broadcasted in {pa.zone_id} "
+                            f"({', '.join(sorted(broadcast.messages))})"
+                        )
                         
                         return SafetyResponse(
                             response_id=f"RESP-PA-{uuid.uuid4().hex[:6]}",
@@ -150,7 +163,11 @@ class ResponseEngine:
                             target_zone=target_zone_id,
                             timestamp=current_time,
                             status=ResponseStatus.COMPLETED,
-                            details={"pa_id": pa.id, "broadcast": pa.current_message}
+                            details={
+                                "pa_id": pa.id,
+                                "broadcast": pa.current_messages,
+                                "audio_chime_type": broadcast.audio_chime_type,
+                            }
                         )
 
         # 4. Lifeguard Rescue / Patrol Dispatch

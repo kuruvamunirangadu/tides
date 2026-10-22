@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Radio, Play, AlertCircle, Globe } from 'lucide-react';
 import { BeachPresetId } from '../models/Beach';
 
@@ -16,6 +16,8 @@ export const AudioAlerts: React.FC<AudioAlertsProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [activeLang, setActiveLang] = useState<'TE' | 'EN' | 'HI'>('TE');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const lastAutomaticAlert = useRef<string | null>(null);
+  const isMounted = useRef(true);
 
   const isRushikonda = beachPreset === 'RUSHIKONDA_VIZAG';
   const beachNameTe = isRushikonda ? 'రుషికొండ బ్లూ ఫ్లాగ్ బీచ్' : 'సూర్యలంక / బాపట్ల బీచ్';
@@ -54,7 +56,7 @@ export const AudioAlerts: React.FC<AudioAlertsProps> = ({
     }
   };
 
-  const speakAlert = (lang: 'TE' | 'EN' | 'HI') => {
+  const speakAlert = useCallback((lang: 'TE' | 'EN' | 'HI') => {
     if (!soundEnabled) return;
     playSiren();
 
@@ -80,7 +82,57 @@ export const AudioAlerts: React.FC<AudioAlertsProps> = ({
 
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }, [soundEnabled, audioScripts]);
+
+  const speakAllLanguages = useCallback(() => {
+    if (!soundEnabled || !('speechSynthesis' in window)) return;
+
+    playSiren();
+    window.speechSynthesis.cancel();
+    const languages: Array<['TE' | 'EN' | 'HI', string]> = [
+      ['TE', 'te-IN'],
+      ['EN', 'en-IN'],
+      ['HI', 'hi-IN'],
+    ];
+    let index = 0;
+
+    const speakNext = () => {
+      if (!isMounted.current || index >= languages.length) {
+        setIsPlaying(false);
+        return;
+      }
+
+      const [lang, locale] = languages[index++];
+      setActiveLang(lang);
+      const utterance = new SpeechSynthesisUtterance(audioScripts[lang]);
+      utterance.lang = locale;
+      utterance.rate = lang === 'TE' ? 0.9 : 0.95;
+      utterance.onstart = () => setIsPlaying(true);
+      utterance.onend = speakNext;
+      utterance.onerror = speakNext;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakNext();
+  }, [soundEnabled, audioScripts]);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  useEffect(() => {
+    const critical = activeFlag === 'RED' || activeFlag === 'BLACK';
+    const alertKey = `${activeFlag}:${hazardType}`;
+    if (critical && lastAutomaticAlert.current !== alertKey) {
+      lastAutomaticAlert.current = alertKey;
+      speakAllLanguages();
+    } else if (!critical) {
+      lastAutomaticAlert.current = null;
+    }
+  }, [activeFlag, hazardType, speakAllLanguages]);
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-xl backdrop-blur-md space-y-2 text-left">
@@ -160,4 +212,3 @@ export const AudioAlerts: React.FC<AudioAlertsProps> = ({
     </div>
   );
 };
-

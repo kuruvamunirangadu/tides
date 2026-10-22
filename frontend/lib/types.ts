@@ -101,6 +101,7 @@ export interface PASystem {
   zone_id: string;
   is_broadcasting: boolean;
   current_message?: string;
+  current_messages?: Record<string, string>;
   last_broadcast_timestamp: number;
   volume_db: number;
 }
