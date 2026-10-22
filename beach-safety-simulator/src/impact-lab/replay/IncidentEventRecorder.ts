@@ -358,6 +358,49 @@ export class IncidentEventRecorder {
 
       this.previousIncidentStatuses.set(inc.id, inc.status);
     }
+
+    // Phase 8 forensic context: attach only evidence that maps to an existing incident.
+    for (const assessment of state.swimmerAssessments || []) {
+      if (assessment.category !== 'UNUSUAL_MOVEMENT' && assessment.category !== 'ELEVATED_CONCERN' && assessment.category !== 'CONFIRMED_DISTRESS') continue;
+      const incident = emergencyIncidents.find((item) => item.affectedVisitorIds?.includes(assessment.visitorId));
+      if (!incident) continue;
+      this.emitEvent({
+        eventId: `EVT-BHV-${incident.id}-${assessment.visitorId}-${assessment.evaluatedAtSimTime}`,
+        incidentId: incident.id,
+        simTimeSeconds: assessment.evaluatedAtSimTime,
+        timeDisplay,
+        wallClockTimestamp: Date.now(),
+        eventType: assessment.category === 'CONFIRMED_DISTRESS' ? 'DISTRESS_DETECTED' : 'BEHAVIOR_ANOMALY',
+        sourceComponent: 'BEHAVIOR_ANALYZER',
+        severity: assessment.category === 'ELEVATED_CONCERN' || assessment.category === 'CONFIRMED_DISTRESS' ? 'CRITICAL' : 'WARNING',
+        title: assessment.category === 'CONFIRMED_DISTRESS' ? 'Authoritative Distress State Confirmed' : 'Swimmer Behavior Anomaly Observed',
+        description: assessment.explanation,
+        isRecordedFact: true,
+        visitorId: assessment.visitorId,
+        zoneId: incident.zoneId,
+        metadata: { category: assessment.category, provenance: assessment.telemetry.provenance },
+      });
+    }
+
+    for (const warning of state.riskOverview?.forecast?.warnings || []) {
+      const incident = emergencyIncidents.find((item) => item.zoneId === warning.zoneId);
+      if (!incident) continue;
+      this.emitEvent({
+        eventId: `EVT-RISK-${incident.id}-${warning.id}`,
+        incidentId: incident.id,
+        simTimeSeconds: state.time,
+        timeDisplay,
+        wallClockTimestamp: Date.now(),
+        eventType: 'RISK_WARNING',
+        sourceComponent: 'FORECAST_ENGINE',
+        severity: warning.severity === 'CRITICAL' ? 'CRITICAL' : 'WARNING',
+        title: 'Forecast Risk Warning',
+        description: warning.message,
+        isRecordedFact: true,
+        zoneId: warning.zoneId,
+        metadata: { horizonSeconds: warning.horizonSeconds, provenance: warning.source },
+      });
+    }
   }
 
   /**

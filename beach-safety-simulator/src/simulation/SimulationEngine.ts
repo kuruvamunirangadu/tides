@@ -43,6 +43,8 @@ import { SimulationCache } from '../cache/SimulationCache';
 import { CacheKeys } from '../cache/CacheKeys';
 import { CacheStats } from '../cache/CacheStats';
 import { RenderSnapshot, RenderVisitorSnapshot, RenderHazardSnapshot, RenderZoneSnapshot } from '../cache/RenderSnapshot';
+import { RiskPropagationModel } from './RiskPropagationModel';
+import { SwimmerBehaviorAnalysisService } from '../visitors/analysis/SwimmerBehaviorAnalysisService';
 
 export class SimulationEngine {
   private clock: SimulationClock;
@@ -51,6 +53,8 @@ export class SimulationEngine {
   private visitorEngine: VisitorEngine;
   private hazardEngine: HazardEngine;
   private riskEngine: RiskEngine;
+  private riskPropagationModel: RiskPropagationModel;
+  private swimmerBehaviorAnalysis: SwimmerBehaviorAnalysisService;
   private decisionEngine: DecisionEngine;
   private emergencyEngine: EmergencyResponseEngine;
   private failureEngine: FailureEngine;
@@ -129,6 +133,8 @@ export class SimulationEngine {
   private analyticsAccumulator: number = 0;
 
   private riskOverview?: BeachRiskOverview;
+  private riskForecast?: import('../models/RiskForecast').RiskForecastState;
+  private swimmerAssessments: import('../visitors/analysis/SwimmerBehaviorAnalysisService').SwimmerBehaviorAssessment[] = [];
   private riskHistory: Array<{
     time: string;
     timestamp: number;
@@ -155,6 +161,8 @@ export class SimulationEngine {
     this.visitorEngine = new VisitorEngine();
     this.hazardEngine = new HazardEngine();
     this.riskEngine = new RiskEngine();
+    this.riskPropagationModel = new RiskPropagationModel();
+    this.swimmerBehaviorAnalysis = SwimmerBehaviorAnalysisService.getInstance();
     this.decisionEngine = new DecisionEngine();
     this.emergencyEngine = new EmergencyResponseEngine();
     this.failureEngine = new FailureEngine();
@@ -645,6 +653,12 @@ export class SimulationEngine {
       timeDisplay
     );
     this.latestFusedState = fusedState;
+    this.swimmerAssessments = this.swimmerBehaviorAnalysis.evaluate(
+      this.visitors,
+      this.beach,
+      env,
+      currentTime
+    );
 
     // Phase 7: Failure & Degradation Engine Tick
     const failureRes = this.failureEngine.tick(
@@ -691,6 +705,13 @@ export class SimulationEngine {
       180,
       'risk'
     );
+    this.riskForecast = this.riskPropagationModel.forecast(
+      this.beach,
+      env,
+      this.riskOverview,
+      currentTime
+    );
+    this.riskOverview = { ...this.riskOverview, forecast: this.riskForecast };
     this.lastRiskCalcDurationMs = performance.now() - tRisk0;
     this.riskVersion++;
 
@@ -872,6 +893,8 @@ export class SimulationEngine {
       visionMetrics: this.latestVisionState?.metrics,
       // Phase 10 Prediction
       predictionState: this.latestPredictionState,
+      // Phase 7 Swimmer Behavior Analysis
+      swimmerAssessments: this.swimmerAssessments,
       // Phase 11 GIS
       activeBeachGIS: this.gisManager?.getActiveBeach(),
       gisBreachEvents: this.latestGISBreaches,
@@ -1089,6 +1112,8 @@ export class SimulationEngine {
     this.decisionEngine.reset();
     this.emergencyEngine.reset();
     this.failureEngine.reset();
+    this.riskPropagationModel.reset();
+    this.swimmerBehaviorAnalysis.reset();
     this.analyticsEngine.reset();
     this.replayEngine.clear();
     this.latestMetrics = undefined;

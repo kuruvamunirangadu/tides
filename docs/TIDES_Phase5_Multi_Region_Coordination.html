@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TIDES Phase 5 - Multi-Region Coordination</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  body { font-family: Arial, sans-serif; color: #172033; line-height: 1.45; }
+  h1 { color: #075985; margin-bottom: 4px; }
+  h2 { color: #0f766e; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 24px; }
+  h3 { color: #334155; margin-bottom: 4px; }
+  .meta { color: #64748b; font-size: 12px; }
+  .notice { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px 12px; }
+  .pass { color: #047857; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+  th { background: #e0f2fe; }
+  code { background: #f1f5f9; padding: 1px 4px; }
+</style>
+</head>
+<body>
+<h1>TIDES Phase 5</h1>
+<h2>Multi-Region Coordination &amp; Intelligent Rescue Resource Allocation</h2>
+<p class="meta">Implementation brief | 22 October 2026 | Decision-support simulation only</p>
+
+<div class="notice"><strong>Operational boundary:</strong> Forecast risk and regional exposure provide operator context. They do not create individual distress, automatically dispatch resources, or replace authorized rescue workflows.</div>
+
+<h2>Objective</h2>
+<p>Connect the existing multi-beach registry, regional incidents, forecast context, rescue resources, drones, and command center through one explainable, read-only operational coordination layer.</p>
+
+<h2>Reused Architecture</h2>
+<ul>
+<li><code>BeachRegistry</code> remains the authoritative multi-region site registry.</li>
+<li><code>RegionalIncidentAdapter</code> remains the incident source and preserves site identity.</li>
+<li><code>RegionalResourceRegistry</code> remains the resource source and exposes availability/provenance.</li>
+<li>Existing mutual-aid and dispatch services remain responsible for operator-approved actions.</li>
+<li>Existing wristband, distress, orange locator, drone, and rescue state machines are unchanged.</li>
+</ul>
+
+<h2>Phase 5 Integration</h2>
+<h3>Cross-region overview</h3>
+<p><code>Phase5CoordinationService</code> aggregates registered sites, active incidents, unassigned incidents, resource availability, and stale/disconnected state without averaging away local hazards.</p>
+<h3>Incident prioritization</h3>
+<p>Active incidents are ordered deterministically using established severity, distress level, elapsed age, and incident ID tie-breaking. Each result includes an explanation. Forecast context is explicitly separate from individual distress.</p>
+<h3>Resource recommendations</h3>
+<p>Recommendations include only available resources with fresh registry data. Station-bound resources are excluded from cross-beach use. Cross-beach candidates remain advisory and require operator authorization and transit review.</p>
+<h3>Command center</h3>
+<p>The existing regional command center now displays a Phase 5 operations strip with active priority incidents, site identifiers, eligible resource count, and the advisory-only dispatch boundary.</p>
+
+<h2>Files</h2>
+<table>
+<tr><th>File</th><th>Responsibility</th></tr>
+<tr><td><code>src/regional/Phase5CoordinationService.ts</code></td><td>Aggregation, deterministic priority, and explainable recommendations.</td></tr>
+<tr><td><code>src/regional/components/RegionalCommandCenter.tsx</code></td><td>Phase 5 operational summary in the existing command center.</td></tr>
+<tr><td><code>src/regional/tests/Phase5CoordinationTestSuite.ts</code></td><td>Deterministic Phase 5 acceptance coverage.</td></tr>
+</table>
+
+<h2>Verification</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Phase 5 coordination suite</td><td class="pass">8/8 passed</td></tr>
+<tr><td>Existing regional coordination suite</td><td class="pass">15/15 passed</td></tr>
+<tr><td>Production build</td><td class="pass">Passed</td></tr>
+<tr><td>Existing Phase 3, tidal, wave, and wristband suites</td><td class="pass">Previously verified</td></tr>
+</table>
+
+<h2>Known Limitations</h2>
+<ul>
+<li>Resource positions, capabilities, and site records are simulated or demonstration data where marked by the registry.</li>
+<li>No autonomous cross-region dispatch is performed.</li>
+<li>Native PDF conversion depends on a local document renderer; this brief is print-ready HTML.</li>
+</ul>
+</body>
+</html>

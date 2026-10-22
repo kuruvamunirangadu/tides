@@ -211,8 +211,8 @@ export class DroneObservationPublisher {
           height: obs.bbox.height,
           confidence: obs.confidence,
           class_name: 'swimmer_normal',
-          source_camera: obs.cameraId,
-          track_id: obs.trackId ? parseInt(obs.trackId.replace(/[^0-9]/g, '')) || 101 : 101,
+          detection_id: obs.detectionId || obs.observationId,
+          camera_id: obs.cameraId,
         },
       ];
 

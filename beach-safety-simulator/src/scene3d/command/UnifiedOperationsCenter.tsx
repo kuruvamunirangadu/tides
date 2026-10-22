@@ -21,6 +21,7 @@ import { EmergencyOperationsPanel } from '../../emergency/coordination/component
 import { RegionalCommandCenter } from '../../regional/components/RegionalCommandCenter';
 import { BeachRegistry } from '../../regional/BeachRegistry';
 import { RegionalRiskAggregator } from '../../regional/RegionalRiskAggregator';
+import { SwimmerBehaviorAnalysisService } from '../../visitors/analysis/SwimmerBehaviorAnalysisService';
 import { ReadinessDashboard } from '../../operations/components/ReadinessDashboard';
 import {
   ShieldAlert,
@@ -64,6 +65,9 @@ export const UnifiedOperationsCenter: React.FC<UnifiedOperationsCenterProps> = (
   is3DConesVisible = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'REGIONAL' | 'READINESS' | 'PREDICTIONS' | 'PERCEPTION' | 'CALIBRATION' | 'EMERGENCY' | 'DECISIONS' | 'FLEET' | 'SENSORS'>('OVERVIEW');
+  const detectorRef = useRef(new PersonDetector());
+  const trackerRef = useRef(new ObjectTracker());
+  const associatorRef = useRef(new CrossCameraAssociator());
 
   if (!isOpen) return null;
 
@@ -79,6 +83,8 @@ export const UnifiedOperationsCenter: React.FC<UnifiedOperationsCenterProps> = (
   const ripIncident = ripSim.getActiveIncident();
   const ripIncidents = ripSim.getActiveIncidents();
   const recordedIncidents = eventRecorder.getIncidents();
+  const swimmerAssessments = SwimmerBehaviorAnalysisService.getInstance().getLatestAssessments();
+  const swimmerConcerns = swimmerAssessments.filter((assessment) => assessment.category === 'UNUSUAL_MOVEMENT' || assessment.category === 'ELEVATED_CONCERN');
 
   // Swimmers in water / hazard zones
   const swimmersInWater = visitors.filter(
@@ -89,9 +95,6 @@ export const UnifiedOperationsCenter: React.FC<UnifiedOperationsCenterProps> = (
   );
 
   // Milestone 7: Computer Vision & Sensor Fusion Pipeline
-  const detectorRef = useRef(new PersonDetector());
-  const trackerRef = useRef(new ObjectTracker());
-  const associatorRef = useRef(new CrossCameraAssociator());
   const fusionAdapter = SensorFusionAdapter.getInstance();
   const correlator = IncidentEvidenceCorrelator.getInstance();
 
@@ -249,6 +252,21 @@ export const UnifiedOperationsCenter: React.FC<UnifiedOperationsCenterProps> = (
                     Target &le; 180s Time-to-Assistance
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-amber-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">Swimmer Behavior Watch</h3>
+                  <span className="text-[10px] text-slate-500">Decision support only</span>
+                </div>
+                <div className="text-[10px] text-slate-300">{swimmerConcerns.length} suspected anomaly(ies) · {swimmerAssessments.filter((assessment) => assessment.category === 'CONFIRMED_DISTRESS').length} confirmed distress</div>
+                {swimmerConcerns.slice(0, 3).map((assessment) => (
+                  <div key={assessment.visitorId} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[10px]">
+                    <span className="text-white">{assessment.visitorName} {assessment.wristbandId ? `(${assessment.wristbandId})` : ''}</span>
+                    <span className="text-amber-300">{assessment.category.replace(/_/g, ' ')}</span>
+                  </div>
+                ))}
+                <div className="text-[9px] text-slate-500">Suspected anomalies never mark a swimmer as distressed or dispatch rescue automatically.</div>
               </div>
 
               {/* Environmental Telemetry Grid */}

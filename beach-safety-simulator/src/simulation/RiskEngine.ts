@@ -3,6 +3,7 @@ import { Environment } from '../models/Environment';
 import { Visitor } from '../models/Visitor';
 import { Hazard } from '../models/Hazard';
 import { ZoneRiskAssessment, BeachRiskOverview, RiskCategory, LevelGrade } from '../models/Risk';
+import { CurrentFieldModel } from '../models/CurrentField';
 
 export class RiskEngine {
   public evaluateBeachRisk(
@@ -15,6 +16,11 @@ export class RiskEngine {
     const zoneAssessments: Record<string, ZoneRiskAssessment> = {};
     let highestScore = 0;
     let highestRiskZoneId = beach.zones[0]?.id || '';
+    const currentImpact = CurrentFieldModel.assessZones(
+      beach,
+      visitors,
+      CurrentFieldModel.fromEnvironment(environment)
+    );
 
     // Calculate total and available lifeguards across the beach
     const totalLifeguards = beach.lifeguardStations.length;
@@ -25,8 +31,15 @@ export class RiskEngine {
     for (const zone of beach.zones) {
       // 1. Calculate Hazard Pillar for this zone
       const zoneHazards = hazards.filter((h) => h.affectedZoneIds.includes(zone.id));
-      const { hazardScore, hazardGrade, primaryHazard, hazardConfidence } =
+      let { hazardScore, hazardGrade, primaryHazard, hazardConfidence } =
         this.computeHazardScore(zoneHazards, environment);
+      const currentZoneImpact = currentImpact.zoneImpacts[zone.id];
+      if (currentZoneImpact && currentZoneImpact.influenceScore > hazardScore) {
+        hazardScore = currentZoneImpact.influenceScore;
+        hazardGrade = this.gradeForScore(hazardScore);
+        primaryHazard = 'CURRENT_FLOW';
+        hazardConfidence = currentZoneImpact.source === 'SIMULATED' ? 0.75 : hazardConfidence;
+      }
 
       // 2. Calculate Exposure Pillar (Human presence in zone)
       const zoneVisitors = visitors.filter(
@@ -112,7 +125,8 @@ export class RiskEngine {
         environment,
         responseGrade,
         category,
-        hasDistressInZone
+        hasDistressInZone,
+        currentZoneImpact
       );
 
       const confidence = Math.round(hazardConfidence * 100) / 100;
@@ -153,6 +167,7 @@ export class RiskEngine {
       overallCategory: this.classifyRiskCategory(highestScore),
       highestRiskZoneId,
       zoneAssessments,
+      currentImpact,
       timestamp: timeDisplay,
     };
   }
@@ -167,7 +182,9 @@ export class RiskEngine {
     hazardConfidence: number;
   } {
     if (hazards.length === 0) {
-      const base = Math.min(25, Math.round(env.waveHeight * 15 + env.waterCurrent * 10));
+      const waveHeight = Number.isFinite(env.waveHeight) ? env.waveHeight : 0;
+      const currentSpeed = Number.isFinite(env.waterCurrent) ? env.waterCurrent : 0;
+      const base = Math.min(25, Math.round(waveHeight * 15 + currentSpeed * 10));
       return {
         hazardScore: base,
         hazardGrade: 'LOW',
@@ -254,6 +271,13 @@ export class RiskEngine {
     return 'LOW';
   }
 
+  private gradeForScore(score: number): LevelGrade {
+    if (score >= 80) return 'CRITICAL';
+    if (score >= 65) return 'HIGH';
+    if (score >= 45) return 'MODERATE';
+    return 'LOW';
+  }
+
   private generateReason(
     primaryHazard: string,
     crowdDensity: string,
@@ -261,7 +285,8 @@ export class RiskEngine {
     env: Environment,
     responseGrade: LevelGrade,
     category: RiskCategory,
-    hasDistressInZone: boolean = false
+    hasDistressInZone: boolean = false,
+    currentZoneImpact?: { affected: boolean; influenceScore: number; source: string }
   ): { reason: string; contributingFactors: string[] } {
     const factors: string[] = [];
 
@@ -272,6 +297,10 @@ export class RiskEngine {
     } else if (primaryHazard === 'RIP_CURRENT') {
       hazardDesc = 'Strong offshore current';
       factors.push(`Seaward current velocity ${env.waterCurrent.toFixed(2)} m/s`);
+    } else if (primaryHazard === 'CURRENT_FLOW') {
+      hazardDesc = 'Current-influenced coastal sector';
+      factors.push(`Spatial current influence: ${currentZoneImpact?.influenceScore ?? 0}/100`);
+      factors.push(`Current data source: ${currentZoneImpact?.source ?? 'UNAVAILABLE'}`);
     } else if (primaryHazard === 'HIGH_WAVES') {
       hazardDesc = `Heavy wave energy (${env.waveHeight.toFixed(1)}m)`;
       factors.push(`Significant wave height Hs: ${env.waveHeight.toFixed(2)}m`);
@@ -285,6 +314,10 @@ export class RiskEngine {
 
     if (swimmerCount > 0) {
       factors.push(`Swimmer exposure: ${swimmerCount} bathers (${crowdDensity} density)`);
+    }
+
+    if (currentZoneImpact?.affected && primaryHazard !== 'CURRENT_FLOW') {
+      factors.push(`Current influence overlaps this sector (${currentZoneImpact.influenceScore}/100)`);
     }
 
     if (responseGrade === 'LOW') {

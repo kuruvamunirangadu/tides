@@ -36,6 +36,7 @@ import { DroneMission } from '../drones/models/DroneMission';
 import { MultiBeachCommandState } from '../command-center/CommandCenterManager';
 import { CacheStats } from '../cache/CacheStats';
 import { RenderSnapshot } from '../cache/RenderSnapshot';
+import type { SwimmerBehaviorAssessment } from '../visitors/analysis/SwimmerBehaviorAnalysisService';
 
 export type BeachPresetId = 'RUSHIKONDA_VIZAG' | 'SURYALANKA_BAPATLA';
 
@@ -148,6 +149,7 @@ export interface SimulationState {
   };
   // TIDES Impact Lab Live Bridge
   impactLab?: ImpactLabSimulationState;
+  swimmerAssessments?: SwimmerBehaviorAssessment[];
 }
 
 export interface ImpactLabSimulationState {

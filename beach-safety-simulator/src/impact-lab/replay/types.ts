@@ -18,7 +18,12 @@ export type ReplayLifecycleEventType =
   | 'RESPONDER_DEPARTED'
   | 'RESPONDER_ARRIVED'
   | 'ASSISTANCE_BEGAN'
-  | 'INCIDENT_RESOLVED';
+  | 'INCIDENT_RESOLVED'
+  | 'BEHAVIOR_ANOMALY'
+  | 'WRISTBAND_TELEMETRY'
+  | 'RISK_WARNING'
+  | 'DRONE_PATROL_CREATED'
+  | 'OPERATOR_ACTION';
 
 export interface ReplayLifecycleEvent {
   eventId: string;
@@ -34,7 +39,11 @@ export interface ReplayLifecycleEvent {
     | 'DECISION_ENGINE'
     | 'EMERGENCY_DISPATCH'
     | 'RESCUE_MANAGER'
-    | 'DRONE_MANAGER';
+    | 'DRONE_MANAGER'
+    | 'BEHAVIOR_ANALYZER'
+    | 'WRISTBAND'
+    | 'FORECAST_ENGINE'
+    | 'OPERATOR_AUDIT';
   severity: 'INFO' | 'WARNING' | 'CRITICAL';
   title: string;
   description: string;

@@ -15,8 +15,15 @@
     "test:visual:pages": "playwright test tests/e2e/tides-visual.spec.ts",
     "test:browser": "playwright test tests/browser",
     "test:tidal": "playwright test tests/browser/tidal.spec.ts",
-    "test:tidal:unit": "tsx src/scene3d/hazards/tests/run_tidal_tests.ts",
-    "test:unit": "tsx src/wristbands/tests/run_all_wristband_tests.ts"
+    "test:tidal:unit": "npm exec tsx -- src/scene3d/hazards/tests/run_tidal_tests.ts",
+    "test:phase3-risk": "npm exec tsx -- src/simulation/tests/run_current_field_tests.ts",
+    "test:phase4-risk": "npm exec tsx -- src/simulation/tests/run_risk_propagation_tests.ts",
+    "test:phase5-coordination": "npm exec tsx -- src/regional/tests/run_phase5_coordination_tests.ts",
+    "test:phase6-surveillance": "npm exec tsx -- src/drones/coverage/tests/run_intelligent_surveillance_tests.ts",
+    "test:phase7-swimmer-analysis": "npm exec tsx -- src/visitors/analysis/tests/run_swimmer_behavior_analysis_tests.ts",
+    "test:phase8-forensic": "npm exec tsx -- src/impact-lab/replay/tests/run_phase8_forensic_timeline_tests.ts",
+    "test:phase8-replay": "npm exec tsx -- src/impact-lab/replay/tests/run_incident_replay_tests.ts",
+    "test:unit": "npm exec tsx -- src/wristbands/tests/run_all_wristband_tests.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

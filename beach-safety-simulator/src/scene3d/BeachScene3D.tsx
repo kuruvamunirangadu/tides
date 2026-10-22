@@ -72,6 +72,9 @@ import { CameraDroneWristbandPanel } from '../wristbands/components/CameraDroneW
 import { ControlledPilotPanel } from '../pilot/components/ControlledPilotPanel';
 import { TidalFlowVisual3D } from './hazards/TidalFlowVisual3D';
 import { TidalFlowHUD } from './hazards/TidalFlowHUD';
+import { CurrentRiskOverlay3D } from './hazards/CurrentRiskOverlay3D';
+import { WaveShoalingVisual3D } from './hazards/WaveShoalingVisual3D';
+import { WaveShoalingHUD } from './hazards/WaveShoalingHUD';
 import { SwimmerDistressNotification } from './components/SwimmerDistressNotification';
 import {
   Shield,
@@ -199,6 +202,18 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
   const [isTidalHUDOpen, setIsTidalHUDOpen] = useState<boolean>(false);
   const tidalFlowVisualRef = useRef<TidalFlowVisual3D | null>(null);
 
+  // Phase 3: Wave Shoaling & Breaker Dynamics Subsystem
+  const [isShoalingVisible, setIsShoalingVisible] = useState<boolean>(true);
+  const [isShoalingMeshVisible, setIsShoalingMeshVisible] = useState<boolean>(true);
+  const [isBreakerLinesVisible, setIsBreakerLinesVisible] = useState<boolean>(true);
+  const [isFoamRollersVisible, setIsFoamRollersVisible] = useState<boolean>(true);
+  const [isRipGapVisible, setIsRipGapVisible] = useState<boolean>(true);
+  const [isBreakerDemarcationVisible, setIsBreakerDemarcationVisible] = useState<boolean>(true);
+  const [isShoalingHUDOpen, setIsShoalingHUDOpen] = useState<boolean>(false);
+  const waveShoalingVisualRef = useRef<WaveShoalingVisual3D | null>(null);
+  const [isCurrentRiskOverlayVisible, setIsCurrentRiskOverlayVisible] = useState<boolean>(true);
+  const currentRiskOverlayRef = useRef<CurrentRiskOverlay3D | null>(null);
+
   // 3D Viewport Presentation, Overlays & Master Tools State
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState<boolean>(false);
   const [isCleanView, setIsCleanView] = useState<boolean>(false);
@@ -212,6 +227,8 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
   beachRef.current = beach;
   const environmentRef = useRef(environment);
   environmentRef.current = environment;
+  const riskOverviewRef = useRef(riskOverview);
+  riskOverviewRef.current = riskOverview;
 
   // Environmental telemetry values
   const waveHeight = environment.waveHeight ?? 1.2;
@@ -374,6 +391,22 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
     tidalFlowVisual.setOffshorePlumeVisible(isPlumeVisible);
     scene.add(tidalFlowVisual.group);
 
+    const currentRiskOverlay = new CurrentRiskOverlay3D(beach);
+    currentRiskOverlayRef.current = currentRiskOverlay;
+    currentRiskOverlay.setVisible(isCurrentRiskOverlayVisible);
+    scene.add(currentRiskOverlay.group);
+
+    // 26. Phase 3: Wave Shoaling & Breaker Dynamics Layer
+    const waveShoalingVisual = new WaveShoalingVisual3D();
+    waveShoalingVisualRef.current = waveShoalingVisual;
+    waveShoalingVisual.setVisible(isShoalingVisible);
+    waveShoalingVisual.setShoalingMeshVisible(isShoalingMeshVisible);
+    waveShoalingVisual.setBreakerLinesVisible(isBreakerLinesVisible);
+    waveShoalingVisual.setFoamRollersVisible(isFoamRollersVisible);
+    waveShoalingVisual.setRipGapVisible(isRipGapVisible);
+    waveShoalingVisual.setBreakerDemarcationVisible(isBreakerDemarcationVisible);
+    scene.add(waveShoalingVisual.group);
+
     // Milestone 12: Independent Per-Swimmer Rescue Check Evaluator
     const perSwimmerEvaluator = PerSwimmerRescueEvaluator.getInstance();
 
@@ -433,6 +466,15 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
 
       // Phase 1: Update Dynamic Tidal Flow, Ocean Current Vectors & Fluorescent Dye Tracer
       tidalFlowVisual.update(delta, environmentRef.current);
+      currentRiskOverlay.update(
+        beachRef.current,
+        riskOverviewRef.current,
+        environmentRef.current,
+        visitorsRef.current
+      );
+
+      // Phase 3: Update Wave Shoaling, Breaker Dynamics & Foam Rollers
+      waveShoalingVisual.update(delta, environmentRef.current);
 
       // Milestone 6: Update 3D Predictive Hazard Expansion Plume
       const predictions = ForecastEngine.getInstance().generateForecast('TREND_BASELINE');
@@ -704,6 +746,9 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
       wristbandVisual.dispose();
       integratedSafetyVisual.dispose();
       tidalFlowVisual.dispose();
+      currentRiskOverlay.dispose();
+      currentRiskOverlayRef.current = null;
+      waveShoalingVisual.dispose();
       droneCameraFrustum.dispose();
       coastalCoverageVisual.dispose();
       DroneVisionManager.getInstance().reset();
@@ -792,6 +837,35 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
   useEffect(() => {
     tidalFlowVisualRef.current?.setOffshorePlumeVisible(isPlumeVisible);
   }, [isPlumeVisible]);
+
+  // Phase 3: Wave Shoaling & Breaker Dynamics visibility syncs
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setVisible(isShoalingVisible);
+  }, [isShoalingVisible]);
+
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setShoalingMeshVisible(isShoalingMeshVisible);
+  }, [isShoalingMeshVisible]);
+
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setBreakerLinesVisible(isBreakerLinesVisible);
+  }, [isBreakerLinesVisible]);
+
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setFoamRollersVisible(isFoamRollersVisible);
+  }, [isFoamRollersVisible]);
+
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setRipGapVisible(isRipGapVisible);
+  }, [isRipGapVisible]);
+
+  useEffect(() => {
+    waveShoalingVisualRef.current?.setBreakerDemarcationVisible(isBreakerDemarcationVisible);
+  }, [isBreakerDemarcationVisible]);
+
+  useEffect(() => {
+    currentRiskOverlayRef.current?.setVisible(isCurrentRiskOverlayVisible);
+  }, [isCurrentRiskOverlayVisible]);
 
   const handleSelectPreset = (preset: CameraPresetType) => {
     setActivePreset(preset);
@@ -898,6 +972,7 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
     isAerialImageVisible,
     isRescueFleetHUDVisible,
     isSpatialAudioHUDOpen,
+    isCurrentRiskOverlayVisible,
   ].filter(Boolean).length;
 
   return (
@@ -988,6 +1063,23 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
               </span>
             </button>
 
+            {/* Phase 3: Wave Shoaling & Breaker Dynamics HUD Launcher */}
+            <button
+              onClick={() => setIsShoalingHUDOpen((p) => !p)}
+              title="Toggle Wave Shoaling, Breaker Dynamics & Rip Gap Hazard (Phase 3)"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl border transition cursor-pointer ${
+                isShoalingHUDOpen || isShoalingVisible
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sky-500/10'
+                  : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
+              }`}
+            >
+              <Waves className="w-3.5 h-3.5 text-sky-400" />
+              <span>Breakers</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${isShoalingVisible ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                {isShoalingVisible ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
             {/* 3D Tools & Overlays Dropdown */}
             <div className="relative">
               <button
@@ -1069,6 +1161,17 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
                         <span className="text-[9px] font-bold">Phase 4</span>
                       </button>
                     </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Current Risk</span>
+                    <button
+                      onClick={() => setIsCurrentRiskOverlayVisible((previous) => !previous)}
+                      className={`w-full p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isCurrentRiskOverlayVisible ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                    >
+                      <span className="font-bold">Regional Risk Overlay</span>
+                      <span className="text-[9px] font-bold">{isCurrentRiskOverlayVisible ? 'VISIBLE' : 'HIDDEN'}</span>
+                    </button>
                   </div>
 
                   {/* Section 2: Drones & Autonomous Fleet */}
@@ -1271,6 +1374,52 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
                     </div>
                   </div>
 
+                  {/* Section: Wave Shoaling & Breaker Dynamics (Phase 3) */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">🌊 Wave Shoaling & Breaker Dynamics</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => { setIsShoalingVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isShoalingVisible ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Shoaling Surface</span>
+                        <span className="text-[9px] font-bold">{isShoalingVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsFoamRollersVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isFoamRollersVisible ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Foam Rollers</span>
+                        <span className="text-[9px] font-bold">{isFoamRollersVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsRipGapVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isRipGapVisible ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Rip Gap Hazard</span>
+                        <span className="text-[9px] font-bold">{isRipGapVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsBreakerDemarcationVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isBreakerDemarcationVisible ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Breaker Line</span>
+                        <span className="text-[9px] font-bold">{isBreakerDemarcationVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsShoalingHUDOpen(true); setIsToolsMenuOpen(false); }}
+                        className="col-span-2 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between text-slate-300 cursor-pointer"
+                      >
+                        <span className="font-bold text-sky-300">Open Wave Shoaling HUD</span>
+                        <span className="text-[9px] font-bold text-sky-400">Launch</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Reset All Overlays */}
                   <div className="pt-2 border-t border-slate-800">
                     <button
@@ -1296,6 +1445,7 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
                         setIsAerialImageVisible(false);
                         setIsRescueFleetHUDVisible(false);
                         setIsSpatialAudioHUDOpen(false);
+                        setIsShoalingHUDOpen(false);
                         setIsToolsMenuOpen(false);
                       }}
                       className="w-full py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-800 text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1560,6 +1710,45 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
             isPlumeVisible={isPlumeVisible}
             onTogglePlume={() => setIsPlumeVisible((p) => !p)}
             onClose={() => setIsTidalHUDOpen(false)}
+          />
+        </div>
+      )}
+
+      {/* Phase 3: Wave Shoaling & Breaker Dynamics HUD */}
+      {isShoalingHUDOpen && (
+        <div className="absolute top-28 left-[340px] z-30 pointer-events-auto">
+          <WaveShoalingHUD
+            environment={environment}
+            metrics={waveShoalingVisualRef.current?.getMetrics() ?? {
+              deepWaterWaveHeight: environment.waveHeight ?? 1.4,
+              wavePeriod: environment.wavePeriod ?? 8.5,
+              waveDirectionDeg: environment.waveDirection ?? 180,
+              deepWaterWavelengthMeters: 0,
+              deepWaterCelerity: 0,
+              averageBeachSlope: 0.035,
+              iribarrenNumber: 0,
+              breakerType: 'SPILLING',
+              breakerIndexGamma: 0.78,
+              breakerWaveHeight: 0,
+              breakerDepthMeters: 0,
+              surfZoneWidthMeters: 0,
+              maxShoalingFactor: 1.0,
+              ripGap: { minX: 24, maxX: 46, centerX: 35, centerDepthMeters: 3.8, sandbarDepthMeters: 1.2, isBreakerSuppressed: true },
+              timestampMs: Date.now(),
+            }}
+            isLayerVisible={isShoalingVisible}
+            onToggleLayer={() => setIsShoalingVisible((p) => !p)}
+            isShoalingMeshVisible={isShoalingMeshVisible}
+            onToggleShoalingMesh={() => setIsShoalingMeshVisible((p) => !p)}
+            isBreakerLinesVisible={isBreakerLinesVisible}
+            onToggleBreakerLines={() => setIsBreakerLinesVisible((p) => !p)}
+            isFoamRollersVisible={isFoamRollersVisible}
+            onToggleFoamRollers={() => setIsFoamRollersVisible((p) => !p)}
+            isRipGapVisible={isRipGapVisible}
+            onToggleRipGap={() => setIsRipGapVisible((p) => !p)}
+            isBreakerDemarcationVisible={isBreakerDemarcationVisible}
+            onToggleBreakerDemarcation={() => setIsBreakerDemarcationVisible((p) => !p)}
+            onClose={() => setIsShoalingHUDOpen(false)}
           />
         </div>
       )}

@@ -176,8 +176,6 @@ export const UnifiedCommandCenterHUD: React.FC<UnifiedCommandCenterHUDProps> = (
     setTimeout(() => setActionNotice(null), 4000);
   };
 
-  if (!isOpen) return null;
-
   const incidents = service.getAllIncidents();
   const drones = service.getAllDrones();
   const detailedIncident = selectedIncidentId ? service.getDetailedIncident(selectedIncidentId) : null;
@@ -300,6 +298,8 @@ export const UnifiedCommandCenterHUD: React.FC<UnifiedCommandCenterHUDProps> = (
       })
       .sort((a, b) => b.wallClockTimestamp - a.wallClockTimestamp);
   }, [incidents, candidates, operatorAuditLogs, searchQuery, severityFilter]);
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-150">

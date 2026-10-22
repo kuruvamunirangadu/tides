@@ -1,3 +1,6 @@
+import { CoastalCurrentImpact } from './CurrentField';
+import type { RiskForecastState } from './RiskForecast';
+
 export type RiskCategory = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 export type LevelGrade = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
@@ -36,5 +39,7 @@ export interface BeachRiskOverview {
   overallCategory: RiskCategory;
   highestRiskZoneId: string;
   zoneAssessments: Record<string, ZoneRiskAssessment>;
+  currentImpact?: CoastalCurrentImpact;
+  forecast?: RiskForecastState;
   timestamp: string;
 }

@@ -16,6 +16,8 @@ import { RegionalFleetOverview } from './RegionalFleetOverview';
 import { RegionalCoordinationPanel } from './RegionalCoordinationPanel';
 import { RegionalAnalyticsPanel } from './RegionalAnalyticsPanel';
 import { BeachDetailModal } from './BeachDetailModal';
+import { Phase5CoordinationService } from '../Phase5CoordinationService';
+import { IntelligentSurveillanceService } from '../../drones/coverage/IntelligentSurveillanceService';
 import {
   ShieldAlert,
   Globe,
@@ -51,6 +53,8 @@ export const RegionalCommandCenter: React.FC<RegionalCommandCenterProps> = ({
   const riskAggregator = RegionalRiskAggregator.getInstance();
   const incidentAdapter = RegionalIncidentAdapter.getInstance();
   const resourceRegistry = RegionalResourceRegistry.getInstance();
+  const phase5Service = new Phase5CoordinationService(registry, incidentAdapter, resourceRegistry);
+  const surveillanceService = new IntelligentSurveillanceService();
 
   const kpis = registry.getSummaryKPIs();
   const beaches = useMemo(() => {
@@ -67,6 +71,8 @@ export const RegionalCommandCenter: React.FC<RegionalCommandCenterProps> = ({
 
   const selectedBeach = registry.getBeach(selectedBeachId) || registry.getBeach('RUSHIKONDA')!;
   const selectedObservation = riskAggregator.getObservation(selectedBeachId);
+  const operationalSnapshot = phase5Service.getSnapshot();
+  const surveillanceSnapshot = surveillanceService.getSnapshot();
 
   const handleSelectBeach = (beachId: string) => {
     setSelectedBeachId(beachId);
@@ -148,6 +154,43 @@ export const RegionalCommandCenter: React.FC<RegionalCommandCenterProps> = ({
           </div>
           <div className="text-xl font-black text-purple-300">{kpis.assignedFleetResources}</div>
           <div className="text-[9px] text-slate-500">Active Missions</div>
+        </div>
+      </div>
+
+      <div className="bg-slate-950/90 border border-cyan-500/20 rounded-2xl p-3 grid grid-cols-1 lg:grid-cols-3 gap-3 font-mono">
+        <div>
+          <div className="text-[10px] uppercase font-bold text-cyan-300">Phase 5 Operations</div>
+          <div className="mt-1 text-xs text-slate-300">{operationalSnapshot.prioritizedIncidents.length} active incidents · {operationalSnapshot.availableResources} eligible resources</div>
+          <div className="text-[9px] text-slate-500">Recommendations are advisory and do not dispatch assets.</div>
+        </div>
+        <div className="lg:col-span-2 flex flex-wrap gap-2">
+          {operationalSnapshot.prioritizedIncidents.slice(0, 3).map((entry) => (
+            <div key={entry.incident.incidentId} className="px-2.5 py-1.5 rounded-xl border border-slate-800 bg-slate-900/80 text-[10px]">
+              <span className="text-rose-300 font-bold">{entry.incident.severity}</span>{' '}
+              <span className="text-white">{entry.incident.incidentId}</span>{' '}
+              <span className="text-slate-500">{entry.incident.siteId}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-slate-950/90 border border-emerald-500/20 rounded-2xl p-3 grid grid-cols-1 lg:grid-cols-3 gap-3 font-mono">
+        <div>
+          <div className="text-[10px] uppercase font-bold text-emerald-300">Phase 6 Surveillance</div>
+          <div className="mt-1 text-xs text-slate-300">{surveillanceSnapshot.activeCameras} active cameras · {surveillanceSnapshot.gaps.length} coverage gaps</div>
+          <div className="text-[9px] text-slate-500">{surveillanceSnapshot.simulatedDataNotice}</div>
+        </div>
+        <div className="lg:col-span-2 flex flex-wrap gap-2">
+          {surveillanceSnapshot.gaps.slice(0, 3).map((gap) => (
+            <div key={gap.gapId} className="px-2.5 py-1.5 rounded-xl border border-amber-500/20 bg-slate-900/80 text-[10px]">
+              <span className="text-amber-300 font-bold">{gap.severity}</span>{' '}
+              <span className="text-white">{gap.zoneName}</span>{' '}
+              <span className="text-slate-500">{gap.gapType}</span>
+            </div>
+          ))}
+          <div className="px-2.5 py-1.5 rounded-xl border border-emerald-500/20 bg-slate-900/80 text-[10px] text-emerald-300">
+            {surveillanceSnapshot.patrolPlan.allocations.length} patrol recommendations
+          </div>
         </div>
       </div>
 

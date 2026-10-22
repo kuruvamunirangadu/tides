@@ -110,6 +110,53 @@ export const RiskPanel: React.FC<RiskPanelProps> = ({ riskOverview }) => {
 
       {assessment && (
         <>
+          {(() => {
+            const currentImpact = riskOverview.currentImpact?.zoneImpacts[assessment.zoneId];
+            if (!currentImpact?.affected) return null;
+            return (
+              <div className="p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/30 text-[10px] font-mono">
+                <div className="flex items-center justify-between text-rose-300 uppercase font-bold">
+                  <span>Current Influence</span>
+                  <span>{currentImpact.category}</span>
+                </div>
+                <div className="mt-1 text-slate-300">
+                  {currentImpact.influenceScore}/100 relative exposure · {currentImpact.visitorIds.length} visitor(s) in region
+                </div>
+                <div className="mt-1 text-slate-500">
+                  {currentImpact.currentSpeedMps.toFixed(2)} m/s at {currentImpact.currentDirectionDeg.toFixed(0)}° · {currentImpact.source.toLowerCase()} model input
+                </div>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const forecast = riskOverview.forecast?.regions.find((region) => region.zoneId === assessment.zoneId);
+            if (!forecast) return null;
+            return (
+              <div className="p-2.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 text-[10px] font-mono">
+                <div className="flex items-center justify-between text-cyan-300 uppercase font-bold">
+                  <span>Simulated Forecast</span>
+                  <span>{forecast.source}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 mt-2">
+                  {forecast.points.map((point) => (
+                    <div key={point.horizonSeconds} className="rounded-lg bg-slate-950/70 p-1.5 border border-slate-800">
+                      <div className="text-slate-500">+{point.horizonSeconds / 60}m</div>
+                      <div className="text-white font-bold">{point.status === 'AVAILABLE' ? point.category : 'N/A'}</div>
+                      <div className="text-slate-400">{point.status === 'AVAILABLE' ? `${point.score}/100 · ${point.trend}` : point.reason}</div>
+                    </div>
+                  ))}
+                </div>
+                {riskOverview.forecast?.warnings.filter((warning) => warning.zoneId === assessment.zoneId).map((warning) => (
+                  <div key={warning.id} className="mt-2 text-amber-300 border-t border-amber-500/20 pt-1.5">
+                    Early warning: {warning.message} {warning.acknowledged ? '(acknowledged)' : ''}
+                  </div>
+                ))}
+                <div className="mt-1.5 text-slate-500">Projection only: not calibrated oceanographic prediction.</div>
+              </div>
+            );
+          })()}
+
           {/* Main Risk Output Score & Categorical Status */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800">
             <div>

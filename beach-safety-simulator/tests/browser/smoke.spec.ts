@@ -69,10 +69,14 @@ test.describe('TIDES Platform — Multi-Service Browser Smoke Tests', () => {
 
   test('4. Beach Safety Simulator loads on port 5173 with 7 simulation mode switchers', async ({ page }) => {
     const consoleErrors: string[] = [];
+    const validationErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text());
       }
+    });
+    page.on('response', (response) => {
+      if (response.status() === 422) validationErrors.push(response.url());
     });
 
     await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -107,17 +111,18 @@ test.describe('TIDES Platform — Multi-Service Browser Smoke Tests', () => {
     // Filter out expected WebGL/audio warnings; ensure no fatal script crashes
     const fatalErrors = consoleErrors.filter(e => e.includes('Uncaught') && !e.includes('favicon'));
     expect(fatalErrors).toHaveLength(0);
+    expect(validationErrors).toHaveLength(0);
   });
 
   test('5. Three.js WebGL canvas context initializes with active dimensions', async ({ page }) => {
     await page.goto('http://localhost:5173', { waitUntil: 'networkidle', timeout: 30000 });
 
     // Check canvas element in DOM
-    const canvasHandles = await page.locator('canvas').all();
-    expect(canvasHandles.length).toBeGreaterThan(0);
+    const canvasCount = await page.locator('canvas').count();
+    expect(canvasCount).toBeGreaterThan(0);
 
     // Verify canvas dimensions
-    const mainCanvas = canvasHandles[0];
+    const mainCanvas = page.locator('canvas').first();
     const boundingBox = await mainCanvas.boundingBox();
     expect(boundingBox).not.toBeNull();
     expect(boundingBox!.width).toBeGreaterThan(500);

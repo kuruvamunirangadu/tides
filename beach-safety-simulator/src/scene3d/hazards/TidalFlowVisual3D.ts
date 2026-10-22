@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Environment } from '../../models/Environment';
+import { CurrentFieldModel } from '../../models/CurrentField';
 import { BeachTerrain } from '../BeachTerrain';
 import { TidalFlowConfig, TidalFlowState, TidalPhase, RipCorridorMetrics } from './tidal.types';
 
@@ -915,13 +916,12 @@ export class TidalFlowVisual3D {
    * Returns authoritative live telemetry summary for UI HUD
    */
   public getStateSummary(environment: Environment): TidalFlowState {
-    const tideLevel = environment.tideLevel ?? this.lastTideLevel;
-    const tidePhase = environment.tideStatus ?? this.lastTidePhase;
-    const currentSpeed = environment.currentSpeed ?? environment.waterCurrent ?? 0.35;
-    const currentDirDeg = environment.currentDirection ?? (tidePhase === 'RISING' ? 10 : 190);
-
-    const flowRad = (currentDirDeg * Math.PI) / 180;
-    const ripNeckSpeed = Math.round(currentSpeed * 1.8 * 100) / 100;
+    const field = CurrentFieldModel.fromEnvironment(environment);
+    const tideLevel = field.tideLevelMeters;
+    const tidePhase = field.tidePhase;
+    const currentSpeed = field.currentSpeedMps;
+    const currentDirDeg = field.currentDirectionDeg;
+    const ripNeckSpeed = field.corridor.neckSpeedMps;
 
     let hazardLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'EXTREME' = 'MODERATE';
     if (ripNeckSpeed > 1.8) hazardLevel = 'EXTREME';
@@ -941,8 +941,8 @@ export class TidalFlowVisual3D {
       tidePhase,
       currentSpeedMps: currentSpeed,
       currentDirectionDeg: currentDirDeg,
-      flowVector: { x: Math.cos(flowRad), z: Math.sin(flowRad) },
-      waveHeightMeters: environment.waveHeight ?? 1.2,
+      flowVector: field.flowVector,
+      waveHeightMeters: field.waveHeightMeters,
       provenance: 'SIMULATED - AP Coastal Hydrodynamics Model',
       isDemonstration: false,
       ripMetrics,
