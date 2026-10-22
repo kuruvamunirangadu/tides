@@ -347,3 +347,61 @@ d:\MUNI RANGADU KURUVA\tides-main\
 
 ## 📄 License
 This project is licensed under the MIT License.
+
+---
+## 📣 Wristband‑to‑Swimmer Integration Audit & Fixes
+
+**Commit** `218d799` introduced a full audit and a set of critical fixes to ensure reliable mapping between wristbands and simulated visitors, robust distress‑state handling, and a stable orange visual locator.
+
+### ✅ Key Improvements
+
+- **Stable Identity Mapping** – `WristbandRegistry` now stores a persistent `visitorId` per wristband, preventing duplicate visitor creation and guaranteeing that selecting a wristband selects the correct 3‑D swimmer and vice‑versa.
+- **Distress‑State Lifecycle** – Consolidated state machine (`VisitorEngine`) with explicit transitions (`NORMAL → SOS → STRUGGLING → CRITICAL → RECOVERED`). Duplicate SOS events update the existing alert instead of spawning new UI elements.
+- **Demo Seeding Fix** – Default demo visitor (`VIS‑REST‑01 / WB‑105`) is **not** seeded as suffocating in normal simulation mode. A config flag `demoDistressEnabled` (default `false`) enables the demo scenario when required.
+- **Orange 3‑D Locator Robustness** – Updated `WristbandVisual3D` and `VisitorCharacter3D` so the orange ring, beacon and overhead badge stay bound to the swimmer’s coordinates, clean up Three.js objects on reset, and support multiple concurrent distressed swimmers.
+- **Command‑Center Synchronization** – All panels now consume a shared `distressState` store, showing live/stale connection badges correctly and avoiding contradictory UI states.
+
+### 🧪 Test Coverage Added
+
+| Area | Test Suite | Highlights |
+|------|------------|------------|
+| Visitor‑to‑wristband mapping | `WristbandSwimmerIntegrationTestSuite` | Correct mapping, selection sync, duplicate prevention |
+| Distress notifications | `DistressNotificationTestSuite` | Single SOS alert, duplicate updates, recovery clearing |
+| Orange locator tracking | `OrangeLocatorTestSuite` | Position follows swimmer, multiple distress markers |
+| Demo seeding | `DemoScenarioTestSuite` | No default suffocation in normal mode, demo flag works |
+| Command‑center sync | `CommandCenterSyncTestSuite` | Unified state, stale telemetry handling |
+| Regression | Existing suites (`WaveShoalingTestSuite`, `ReliabilityTestSuite`, etc.) | All prior tests still pass |
+
+All tests run deterministically (no timing‑sensitive animation loops) and report **green** on CI.
+
+### 📂 Files Modified (Commit `218d799`)
+
+- `src/wristbands/WristbandRegistry.ts`
+- `src/wristbands/WristbandIncidentBridge.ts`
+- `src/scene3d/WristbandVisual3D.tsx`
+- `src/scene3d/BeachScene3D.tsx`
+- `src/components/SwimmerDistressNotification.tsx`
+- `src/components/VisitorPanel.tsx`
+- `src/scene3d/command/UnifiedOperationsCenter.tsx`
+- Added/updated test suites under `src/wristbands/tests/` and `src/scene3d/hazards/tests/`
+
+### 🚀 How to Run
+
+```bash
+# Install deps (once)
+npm ci
+
+# Build & start simulator
+npm run dev   # http://localhost:5173
+
+# Run all tests
+npm test
+```
+
+To enable the demo distress scenario, set the flag in `src/wristbands/wristband.types.ts`:
+
+```ts
+export const demoDistressEnabled = false; // set true for the demonstration
+```
+
+---
