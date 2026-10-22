@@ -156,6 +156,10 @@ export class WristbandRegistry {
     return this.wristbands.get(id);
   }
 
+  public getWristbandByVisitorId(visitorId: string): SwimmerWristband | undefined {
+    return Array.from(this.wristbands.values()).find((w) => w.pairedVisitorId === visitorId);
+  }
+
   public registerWristband(wb: SwimmerWristband): void {
     this.wristbands.set(wb.id, wb);
   }

@@ -157,6 +157,47 @@ export class VisitorGenerator {
     };
   }
 
+  public static generateWristbandVisitor(
+    visitorId: string,
+    name: string,
+    wristbandId: string,
+    x: number,
+    y: number,
+    zone: string,
+    state: any = 'SWIMMING',
+    isSuffocating: boolean = false
+  ): Visitor {
+    return {
+      id: visitorId,
+      name,
+      wristbandId,
+      type: isSuffocating ? 'DISTRESSED_SWIMMER' : 'SWIMMER',
+      position: { x, y },
+      currentZone: zone,
+      state: isSuffocating ? 'STRUGGLING' : state,
+      behavior: BEHAVIOR_PROFILES.NORMAL,
+      vulnerability: isSuffocating ? 0.9 : 0.4,
+      awareness: 0.6,
+      swimmingAbility: 0.6,
+      riskTolerance: 0.5,
+      warningResponse: 0.8,
+      distressLevel: isSuffocating ? 0.85 : 0.0,
+      speed: 1.0,
+      active: true,
+      awarenessState: isSuffocating ? 'TRAPPED' : 'UNAWARE',
+      reactionDelaySeconds: 1.2,
+      localWaterDepth: 1.8,
+      fatigue: isSuffocating ? 0.78 : 0.2,
+      waterTime: 120,
+      velocity: { vx: 0, vy: isSuffocating ? 0.3 : 0 },
+      driftVector: { dx: 0, dy: 0 },
+      color: isSuffocating ? '#f97316' : '#38bdf8',
+      warningCount: 0,
+      isSuffocating,
+      feelingState: isSuffocating ? 'UNSAFE' : 'SAFE',
+    };
+  }
+
   public static generateFamilyGroup(
     groupManager: GroupManager,
     spawnX?: number,

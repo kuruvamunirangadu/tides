@@ -75,6 +75,11 @@ class BeachSoundEngineService {
    * Initializes AudioContext on user interaction
    */
   public async initAudio(): Promise<boolean> {
+    // Headless / Node.js test environment guard
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
     try {
       if (!this.ctx) {
         const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;

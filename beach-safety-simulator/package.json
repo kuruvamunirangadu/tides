@@ -7,7 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:smoke": "playwright test tests/browser/smoke.spec.ts",
+    "test:visual": "playwright test tests/browser/visual.spec.ts",
+    "test:visual:update": "playwright test tests/browser/visual.spec.ts --update-snapshots",
+    "test:e2e": "playwright test tests/browser/e2e.spec.ts",
+    "test:visual:pages": "playwright test tests/e2e/tides-visual.spec.ts",
+    "test:browser": "playwright test tests/browser",
+    "test:tidal": "playwright test tests/browser/tidal.spec.ts",
+    "test:tidal:unit": "tsx src/scene3d/hazards/tests/run_tidal_tests.ts",
+    "test:unit": "tsx src/wristbands/tests/run_all_wristband_tests.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -20,6 +29,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

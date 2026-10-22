@@ -192,4 +192,12 @@ export class IncidentManager {
     this.activeIncidents.clear();
     this.history.clear();
   }
+
+  public resolveIncident(incidentId: string, currentTime: number = Date.now()): boolean {
+    const inc = this.activeIncidents.get(incidentId);
+    if (!inc) return false;
+    inc.active = false;
+    inc.resolvedAt = currentTime;
+    return true;
+  }
 }

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export type AnimationState3D = 'idle' | 'walk' | 'wade' | 'swim' | 'distress' | 'float';
 
-export type CharacterRoleState3D = 'NORMAL' | 'CAUTION' | 'DISTRESS' | 'RESCUED';
+export type CharacterRoleState3D = 'NORMAL' | 'CAUTION' | 'DISTRESS' | 'RESCUED' | 'SUFFOCATING_ORANGE';
 
 export interface CharacterAppearance {
   skinTone: number;
@@ -42,6 +42,9 @@ export interface Visitor3DTransform {
   distressLevel?: number;
   visitorId?: string;
   visitorName?: string;
+  wristbandId?: string;
+  isSuffocating?: boolean;
+  isOrangeAlert?: boolean;
   isSelected?: boolean;
 }
 

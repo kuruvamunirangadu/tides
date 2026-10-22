@@ -25,6 +25,7 @@ import {
   TrendingDown,
   Sparkles,
   Info,
+  Crosshair,
 } from 'lucide-react';
 import {
   SwimmerFeelingControlManager,
@@ -279,6 +280,24 @@ export const SwimmerFeelingFlowPanel: React.FC<SwimmerFeelingFlowPanelProps> = (
             {feeling.activeIntervention}
           </span>
         </div>
+
+        {/* 1-Tap 3D Swimmer Locator Button */}
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('tides:locate-swimmer', {
+                  detail: { visitorId: feeling.visitorId, wristbandId: feeling.wristbandId },
+                })
+              );
+            }
+          }}
+          className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-black text-[10px] shadow-lg shadow-orange-950 transition cursor-pointer flex items-center justify-center gap-1.5"
+          title="Glide 3D camera to swimmer and highlight with orange rings"
+        >
+          <Crosshair className="w-3.5 h-3.5" />
+          <span>LOCATE SWIMMER IN 3D (Orange Marker)</span>
+        </button>
       </div>
 
       {/* 2. 4-Stage Closed-Loop System Control Flow Pipeline */}
@@ -357,8 +376,17 @@ export const SwimmerFeelingFlowPanel: React.FC<SwimmerFeelingFlowPanelProps> = (
             distressLogs.map((entry) => (
               <div
                 key={entry.id}
-                onClick={() => onSelectWristband && onSelectWristband(entry.wristbandId)}
-                className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                onClick={() => {
+                  if (onSelectWristband) onSelectWristband(entry.wristbandId);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(
+                      new CustomEvent('tides:locate-swimmer', {
+                        detail: { visitorId: entry.swimmerId, wristbandId: entry.wristbandId },
+                      })
+                    );
+                  }
+                }}
+                className={`p-2 rounded-xl border text-left transition cursor-pointer hover:border-orange-400 ${
                   entry.status === 'SUFFERING_ACTIVE'
                     ? 'bg-rose-950/40 border-rose-500/60 shadow-md shadow-rose-950/40'
                     : entry.status === 'SYSTEM_INTERVENING'

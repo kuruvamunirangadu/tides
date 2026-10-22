@@ -2,8 +2,9 @@ import { Beach } from '../../models/Beach';
 import { Environment } from '../../models/Environment';
 import { Visitor } from '../../models/Visitor';
 import { BeachTerrain } from '../BeachTerrain';
-import { AnimationState3D, Visitor3DTransform } from './visitor3d.types';
+import { AnimationState3D, CharacterRoleState3D, Visitor3DTransform } from './visitor3d.types';
 import { SwimmerMotionAdapter } from './SwimmerMotionAdapter';
+import { WristbandRegistry } from '../../wristbands/WristbandRegistry';
 
 /**
  * VisitorCoordinateMapper.ts
@@ -35,8 +36,15 @@ export class VisitorCoordinateMapper {
     const motionInfo = SwimmerMotionAdapter.getInstance().getSwimmerMotion(visitor.id);
 
     // Pre-evaluate distress state for animation and water surface height clearance
+    const isSuffocating = Boolean(
+      visitor.isSuffocating ||
+      visitor.feelingState === 'UNSAFE' ||
+      visitor.feelingState === 'CRITICAL_PANIC' ||
+      (visitor.color === '#f97316' && (visitor.state === 'STRUGGLING' || visitor.state === 'DISTRESS'))
+    );
+
     const isDistress =
-      visitor.state === 'STRUGGLING' ||
+      isSuffocating ||
       visitor.state === 'DISTRESS' ||
       (visitor.distressLevel ?? 0) > 0.6 ||
       motionInfo?.motionState === 'DISTRESS' ||
@@ -142,14 +150,16 @@ export class VisitorCoordinateMapper {
     const effectiveSpeed = Math.max(0.4, visitor.speed || 1.0);
 
     // Compute role classification for 3D overhead badges and indicators
-    const isCaution = !isDistress && (
+    const isCaution = !isDistress && !isSuffocating && (
       ((visitor as any).riskLevel && (visitor as any).riskLevel > 0.5) ||
       visitor.vulnerability > 0.6 ||
       (visitor.distressLevel && visitor.distressLevel > 0.3) ||
       (inWater && Math.abs(x3d - 35.5) < 20 && z3d < -15) // Rip hazard corridor
     );
 
-    const roleState = isDistress
+    const roleState: CharacterRoleState3D = isSuffocating
+      ? 'SUFFOCATING_ORANGE'
+      : isDistress
       ? 'DISTRESS'
       : isCaution
       ? 'CAUTION'
@@ -160,15 +170,18 @@ export class VisitorCoordinateMapper {
       y: y3d,
       z: z3d,
       rotationY: heading,
-      animationState,
+      animationState: isSuffocating ? 'distress' : animationState,
       speed: effectiveSpeed,
       inWater,
       waterDepth,
-      distress: Boolean(isDistress),
+      distress: Boolean(isDistress || isSuffocating),
       roleState,
-      distressLevel: visitor.distressLevel ?? 0,
+      distressLevel: isSuffocating ? 0.9 : (visitor.distressLevel ?? 0),
       visitorId: visitor.id,
-      visitorName: (visitor as any).name || `Swimmer #${visitor.id.slice(-4)}`,
+      visitorName: visitor.name || (visitor as any).name || `Swimmer #${visitor.id.slice(-4)}`,
+      wristbandId: visitor.wristbandId || WristbandRegistry.getInstance().getWristbandByVisitorId(visitor.id)?.id,
+      isSuffocating,
+      isOrangeAlert: isSuffocating,
     };
   }
 

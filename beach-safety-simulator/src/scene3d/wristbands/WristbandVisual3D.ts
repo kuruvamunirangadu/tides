@@ -13,6 +13,8 @@
 import * as THREE from 'three';
 import { WristbandRegistry } from '../../wristbands/WristbandRegistry';
 import { LocalizedWarningDistributionEngine } from '../../wristbands/LocalizedWarningDistributionEngine';
+import { BeachTerrain } from '../BeachTerrain';
+import { SwimmerFeelingControlManager } from '../../wristbands/feeling/SwimmerFeelingControlManager';
 
 export class WristbandVisual3D {
   public group: THREE.Group;
@@ -48,11 +50,24 @@ export class WristbandVisual3D {
   }
 
   private canvasTo3D(x: number, y: number): THREE.Vector3 {
-    return new THREE.Vector3(
-      (x - 500) * 0.5,
-      0.3,
-      (y - 300) * 0.5
-    );
+    const normX = Math.max(0, Math.min(1, x / 1000));
+    const x3d = (normX - 0.5) * 200;
+    const shoreZ = BeachTerrain.getShorelineZ(x3d);
+    const shorelineY = 280;
+    let z3d = shoreZ;
+    let y3d = 0.3;
+
+    if (y < shorelineY) {
+      const sandFrac = (shorelineY - y) / Math.max(1, shorelineY);
+      z3d = shoreZ + sandFrac * 62;
+      y3d = BeachTerrain.getElevation(x3d, z3d);
+    } else {
+      const waterFrac = (y - shorelineY) / Math.max(1, 600 - shorelineY);
+      z3d = shoreZ - waterFrac * 70;
+      y3d = 0.25;
+    }
+
+    return new THREE.Vector3(x3d, y3d, z3d);
   }
 
   private buildGatewayTowers(): void {
@@ -145,13 +160,16 @@ export class WristbandVisual3D {
 
       halo.position.copy(swimmerPos3D);
 
-      // Color and pulsation by device status
+      // Color and pulsation by device status & feeling state (Orange for Suffocating / Danger)
       const ringMesh = halo.getObjectByName('HaloRing') as THREE.Mesh;
       if (ringMesh && ringMesh.material instanceof THREE.MeshBasicMaterial) {
-        if (wb.isSosActive) {
-          ringMesh.material.color.setHex(0xEF4444); // Red
-          const sosPulse = 1.0 + Math.sin(clockMs * 0.012) * 0.35;
-          ringMesh.scale.set(sosPulse, sosPulse, sosPulse);
+        const feeling = SwimmerFeelingControlManager.getInstance().getSwimmerFeeling(wb.id);
+        const isOrangeDistress = wb.isSosActive || feeling.feeling === 'UNSAFE' || feeling.feeling === 'CRITICAL_PANIC' || feeling.isSuffering;
+
+        if (isOrangeDistress) {
+          ringMesh.material.color.setHex(0xF97316); // Vivid Safety Orange!
+          const orangePulse = 1.0 + Math.sin(clockMs * 0.012) * 0.45;
+          ringMesh.scale.set(orangePulse, orangePulse, orangePulse);
         } else if (wb.lastWarningReceived && wb.lastWarningReceived.status !== 'ACKNOWLEDGED') {
           ringMesh.material.color.setHex(0xF59E0B); // Amber
           const warnPulse = 1.0 + Math.sin(clockMs * 0.008) * 0.2;
@@ -220,6 +238,7 @@ export class WristbandVisual3D {
   private createSwimmerHalo(wb: any): THREE.Group {
     const group = new THREE.Group();
     group.name = `Halo-${wb.id}`;
+    group.userData = { type: 'WRISTBAND_HALO', wristbandId: wb.id, visitorId: wb.pairedVisitorId };
 
     // Halo floating ring
     const ringGeom = new THREE.RingGeometry(0.8, 1.1, 24);

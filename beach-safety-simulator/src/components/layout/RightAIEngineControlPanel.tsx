@@ -133,6 +133,16 @@ export const RightAIEngineControlPanel: React.FC<RightAIEngineControlPanelProps>
   const [wbNotice, setWbNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    const handleSelectWb = (e: any) => {
+      if (e?.detail?.wristbandId) {
+        setSelectedWristbandId(e.detail.wristbandId);
+      }
+    };
+    window.addEventListener('tides:select-wristband', handleSelectWb);
+    return () => window.removeEventListener('tides:select-wristband', handleSelectWb);
+  }, []);
+
+  useEffect(() => {
     const update = () => {
       const liveBands = wristbandRegistry.getWristbands();
       setWristbands([...liveBands]);

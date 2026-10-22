@@ -43,8 +43,19 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'operations' | 'fleet' | 'wristbands' | 'analytics'>('operations');
   const [wristbands, setWristbands] = useState<SwimmerWristband[]>(WristbandRegistry.getInstance().getWristbands());
+  const [selectedWristbandId, setSelectedWristbandId] = useState<string>('WB-105');
   const [wbFilter, setWbFilter] = useState<'all' | 'sos' | 'water' | 'battery'>('all');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleSelectWb = (e: any) => {
+      if (e?.detail?.wristbandId) {
+        setSelectedWristbandId(e.detail.wristbandId);
+      }
+    };
+    window.addEventListener('tides:select-wristband', handleSelectWb);
+    return () => window.removeEventListener('tides:select-wristband', handleSelectWb);
+  }, []);
 
   useEffect(() => {
     const update = () => {
@@ -349,7 +360,8 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
         {activeTab === 'wristbands' && (
           <div className="space-y-2 text-left">
             <SwimmerFeelingFlowPanel
-              selectedWristbandId="WB-105"
+              selectedWristbandId={selectedWristbandId}
+              onSelectWristband={(id) => setSelectedWristbandId(id)}
             />
           </div>
         )}

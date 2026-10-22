@@ -33,6 +33,7 @@ export class VisitorCharacter3D {
   private splashGroup: THREE.Group;
   private locatorBeam: THREE.Mesh | null = null;
   private selectionRing: THREE.Mesh | null = null;
+  private orangeLocatorRing: THREE.Mesh | null = null;
 
   private pulseClock: number = Math.random() * Math.PI * 2;
   public static showBadgesGlobally: boolean = true;
@@ -103,6 +104,21 @@ export class VisitorCharacter3D {
     this.selectionRing.visible = false;
     this.root.add(this.selectionRing);
 
+    // 3b. Orange Locator Ring (active when person is suffocating or in orange distress)
+    const orangeGeo = new THREE.RingGeometry(1.1, 1.5, 32);
+    orangeGeo.rotateX(-Math.PI / 2);
+    const orangeMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316, // Vivid Safety Orange
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    this.orangeLocatorRing = new THREE.Mesh(orangeGeo, orangeMat);
+    this.orangeLocatorRing.position.set(0, 0.08, 0);
+    this.orangeLocatorRing.visible = false;
+    this.root.add(this.orangeLocatorRing);
+
     // 4. Overhead 3D Billboard Sprite Badge
     this.initOverheadBadge();
   }
@@ -133,9 +149,9 @@ export class VisitorCharacter3D {
   /**
    * Renders high-visibility canvas badge based on role state
    */
-  private updateBadgeTexture(role: CharacterRoleState3D, shortId: string): void {
+  private updateBadgeTexture(role: CharacterRoleState3D, shortId: string, wristbandId?: string): void {
     if (typeof document === 'undefined' || !this.overheadSprite) return;
-    const stateKey = `${role}-${shortId}`;
+    const stateKey = `${role}-${shortId}-${wristbandId || ''}`;
     if (this.currentBadgeState === stateKey) return;
     this.currentBadgeState = stateKey;
 
@@ -152,7 +168,13 @@ export class VisitorCharacter3D {
     let label = `SWIMMER #${shortId}`;
     let icon = '🏊';
 
-    if (role === 'DISTRESS') {
+    if (role === 'SUFFOCATING_ORANGE') {
+      bgColor = 'rgba(234, 88, 12, 0.96)'; // Vivid Safety Orange
+      borderColor = '#fde047'; // High-vis yellow border
+      textColor = '#ffffff';
+      label = wristbandId ? `⚠️ [${wristbandId}] SUFFOCATING` : `⚠️ SUFFOCATING #${shortId}`;
+      icon = '🦺';
+    } else if (role === 'DISTRESS') {
       bgColor = 'rgba(239, 68, 68, 0.95)';
       borderColor = '#fef08a';
       textColor = '#ffffff';
@@ -228,15 +250,16 @@ export class VisitorCharacter3D {
     // Update Overhead Badge
     const role = transform.roleState || (transform.distress ? 'DISTRESS' : 'NORMAL');
     const shortId = this.id.slice(-4);
-    this.updateBadgeTexture(role, shortId);
+    const isOrange = role === 'SUFFOCATING_ORANGE' || Boolean(transform.isSuffocating) || Boolean(transform.isOrangeAlert);
+    this.updateBadgeTexture(role, shortId, transform.wristbandId);
 
     if (this.overheadSprite) {
       this.overheadSprite.visible =
         VisitorCharacter3D.showBadgesGlobally &&
-        (role === 'DISTRESS' || role === 'CAUTION' || transform.inWater);
+        (role === 'DISTRESS' || role === 'SUFFOCATING_ORANGE' || role === 'CAUTION' || transform.inWater);
 
-      // In distress, pulse badge scale
-      if (role === 'DISTRESS') {
+      // In distress / orange suffocating state, pulse badge scale
+      if (role === 'DISTRESS' || role === 'SUFFOCATING_ORANGE') {
         const pulse = 1.0 + Math.sin(this.pulseClock * 2.0) * 0.15;
         this.overheadSprite.scale.set(3.4 * pulse, 0.85 * pulse, 1.0);
         this.overheadSprite.position.y = 2.45 + Math.sin(this.pulseClock) * 0.08;
@@ -247,7 +270,7 @@ export class VisitorCharacter3D {
     }
 
     // Update Distress Visuals: Splashing foam & Emergency Locator Beam
-    const isDistress = role === 'DISTRESS' || transform.distress;
+    const isDistress = role === 'DISTRESS' || role === 'SUFFOCATING_ORANGE' || transform.distress;
     if (this.splashGroup) {
       this.splashGroup.visible = isDistress && transform.inWater;
       if (this.splashGroup.visible) {
@@ -266,8 +289,24 @@ export class VisitorCharacter3D {
     if (this.locatorBeam) {
       this.locatorBeam.visible = isDistress;
       if (isDistress) {
-        const beamPulse = 0.25 + Math.sin(this.pulseClock * 3.0) * 0.15;
-        (this.locatorBeam.material as THREE.MeshBasicMaterial).opacity = beamPulse;
+        const beamPulse = 0.35 + Math.sin(this.pulseClock * 3.0) * 0.2;
+        const beamMat = this.locatorBeam.material as THREE.MeshBasicMaterial;
+        beamMat.opacity = beamPulse;
+        if (isOrange) {
+          beamMat.color.setHex(0xf97316); // Vivid Safety Orange Beacon
+        } else {
+          beamMat.color.setHex(0xef4444); // Red Beacon
+        }
+      }
+    }
+
+    // Update Orange Locator Ring (Phase 2 Orange Highlight on Water Surface)
+    if (this.orangeLocatorRing) {
+      this.orangeLocatorRing.visible = isOrange;
+      if (isOrange) {
+        this.orangeLocatorRing.rotation.z += delta * 1.8;
+        const oPulse = 1.0 + Math.sin(this.pulseClock * 2.5) * 0.25;
+        this.orangeLocatorRing.scale.set(oPulse, oPulse, oPulse);
       }
     }
 
@@ -308,6 +347,10 @@ export class VisitorCharacter3D {
     if (this.selectionRing) {
       this.selectionRing.geometry.dispose();
       (this.selectionRing.material as THREE.Material).dispose();
+    }
+    if (this.orangeLocatorRing) {
+      this.orangeLocatorRing.geometry.dispose();
+      (this.orangeLocatorRing.material as THREE.Material).dispose();
     }
     if (this.root.parent) {
       this.root.parent.remove(this.root);

@@ -79,6 +79,7 @@ export class SwimmerFeelingControlManager {
   private feelings: Map<string, SwimmerFeelingState> = new Map();
   private distressLog: SwimmerDistressLogEntry[] = [];
   private logCounter: number = 500;
+  private activeVisitors: Visitor[] | null = null;
 
   private constructor() {
     this.initializeDefaultFeelings();
@@ -160,28 +161,28 @@ export class SwimmerFeelingControlManager {
         visId: 'VIS-SWIM-04',
         name: 'Pooja Reddy',
         zone: 'CENTRAL_SURF',
-        feeling: 'APPREHENSIVE',
-        sensation: 'Undertow drag detected on feet, current pushing toward sandbar edge',
-        fatigue: 54,
-        hr: 118,
-        struggle: 'MODERATE',
-        stage: 'ADVISORY_DOWNLINK',
-        action: 'Haptic Advisory Downlinked • Guided Inshore',
-        suffering: true,
+        feeling: 'SAFE',
+        sensation: 'Swimming comfortably in central surf zone, gentle swell',
+        fatigue: 24,
+        hr: 88,
+        struggle: 'NOMINAL',
+        stage: 'MONITORING_SAFE',
+        action: 'Routine Telemetry Heartbeat (~3 Hz)',
+        suffering: false,
       },
       {
         wbId: 'WB-105',
         visId: 'VIS-REST-01',
         name: 'Karthik Varma',
         zone: 'RIP_CURRENT_CORRIDOR_SOUTH',
-        feeling: 'UNSAFE',
-        sensation: 'Caught in seaward rip chute (velocity 1.4 m/s), legs tiring, panic rising',
-        fatigue: 78,
-        hr: 146,
-        struggle: 'HIGH',
-        stage: 'WARNING_INTERVENTION',
-        action: 'Matrix Board Alert Active • UAV Patrol Dispatched',
-        suffering: true,
+        feeling: 'SAFE',
+        sensation: 'Swimming near southern sandbar, conditions nominal',
+        fatigue: 22,
+        hr: 84,
+        struggle: 'NOMINAL',
+        stage: 'MONITORING_SAFE',
+        action: 'Routine Telemetry Heartbeat (~3 Hz)',
+        suffering: false,
       },
       {
         wbId: 'WB-106',
@@ -381,7 +382,32 @@ export class SwimmerFeelingControlManager {
       goldenWindowCompliant: true,
     });
 
+    // Dispatch browser event for real-time notification & 3D camera locator
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tides:swimmer-distress', { detail: feeling }));
+      window.dispatchEvent(new CustomEvent('tides:feeling-updated', { detail: feeling }));
+    }
+
     return feeling;
+  }
+
+  /**
+   * Resets all swimmer feelings and transient distress states back to normal baseline simulation
+   */
+  public resetToNormalSimulation(): void {
+    this.distressLog = [];
+    this.logCounter = 500;
+    this.initializeDefaultFeelings();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tides:feeling-updated'));
+    }
+  }
+
+  /**
+   * Explicitly triggers on-demand demo distress scenario for a wristband
+   */
+  public triggerDemoDistressScenario(wristbandId: string = 'WB-105'): SwimmerFeelingState {
+    return this.simulateFeelingUnsafe(wristbandId, 'Demo Scenario: Sudden Seaward Rip Outflow');
   }
 
   /**
@@ -430,6 +456,12 @@ export class SwimmerFeelingControlManager {
       goldenWindowCompliant: true,
     });
 
+    // Dispatch browser event for real-time notification & 3D camera locator
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tides:swimmer-distress', { detail: feeling }));
+      window.dispatchEvent(new CustomEvent('tides:feeling-updated', { detail: feeling }));
+    }
+
     return feeling;
   }
 
@@ -453,14 +485,28 @@ export class SwimmerFeelingControlManager {
     feeling.lastUpdatedMs = now;
     feeling.isSuffering = false;
 
-    // Reset wristband state
+    // Reset wristband state & resolve incident bridge
     WristbandRegistry.getInstance().cancelSOS(wristbandId);
+    WristbandIncidentBridge.getInstance().resolveWristbandIncident(wristbandId as any);
     WristbandRegistry.getInstance().updateWristband(wristbandId, {
       ledState: 'PULSING_GREEN',
       vibrationPattern: 'OFF',
       oledMessage: 'SAFE - BEACH OPEN',
       lastAcknowledgedAtMs: now,
     });
+
+    // Reset linked visitor state immediately in simulation to prevent re-triggering SOS
+    const wb = WristbandRegistry.getInstance().getWristband(wristbandId);
+    if (wb?.pairedVisitorId && this.activeVisitors) {
+      const vis = this.activeVisitors.find((v) => v.id === wb.pairedVisitorId);
+      if (vis) {
+        vis.isSuffocating = false;
+        vis.distressLevel = 0.0;
+        vis.color = '#38bdf8';
+        vis.feelingState = 'SAFE';
+        vis.state = 'SWIMMING';
+      }
+    }
 
     // Mark active log entries for this wristband as resolved
     for (const entry of this.distressLog) {
@@ -472,6 +518,12 @@ export class SwimmerFeelingControlManager {
       }
     }
 
+    // Dispatch browser event for real-time notification & 3D camera locator
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tides:swimmer-distress', { detail: feeling }));
+      window.dispatchEvent(new CustomEvent('tides:feeling-updated', { detail: feeling }));
+    }
+
     return feeling;
   }
 
@@ -479,6 +531,7 @@ export class SwimmerFeelingControlManager {
    * Synchronize real-time feeling states with the active simulation loop
    */
   public syncWithSimulation(visitors: Visitor[], wristbands: SwimmerWristband[]): void {
+    this.activeVisitors = visitors;
     const now = Date.now();
     for (const wb of wristbands) {
       let state = this.feelings.get(wb.id);
@@ -486,8 +539,8 @@ export class SwimmerFeelingControlManager {
         state = this.getSwimmerFeeling(wb.id);
       }
 
-      // If wristband has an active SOS, ensure feeling reflects CRITICAL_PANIC
-      if (wb.isSosActive && state.feeling !== 'CRITICAL_PANIC') {
+      // If wristband has an active SOS, ensure feeling reflects CRITICAL_PANIC (unless safely stabilized)
+      if (wb.isSosActive && state.feeling !== 'CRITICAL_PANIC' && state.feeling !== 'STABILIZED') {
         state.feeling = 'CRITICAL_PANIC';
         state.struggleIndex = 'CRITICAL';
         state.fatiguePercent = Math.max(state.fatiguePercent, 88);
@@ -495,26 +548,49 @@ export class SwimmerFeelingControlManager {
         state.activeIntervention = 'Active Distress Protocol • Multi-Agency Response In Progress';
         state.isSuffering = true;
       }
+      if (state.feeling === 'STABILIZED' && wb.isSosActive) {
+        wb.isSosActive = false;
+        wb.ledState = 'PULSING_GREEN';
+      }
 
-      // Check linked simulated visitor
+      // Check linked simulated visitor - BIDIRECTIONAL CONNECTION
       if (wb.pairedVisitorId) {
         const vis = visitors.find((v) => v.id === wb.pairedVisitorId);
         if (vis) {
-          if (vis.state === 'DISTRESS' && state.feeling !== 'CRITICAL_PANIC') {
-            state.feeling = 'CRITICAL_PANIC';
-            state.struggleIndex = 'CRITICAL';
-            state.fatiguePercent = Math.round(vis.fatigue * 100);
-            state.isSuffering = true;
-          } else if (vis.state === 'STRUGGLING' && state.feeling === 'SAFE') {
-            state.feeling = 'UNSAFE';
-            state.struggleIndex = 'HIGH';
-            state.fatiguePercent = Math.round(vis.fatigue * 100);
-            state.isSuffering = true;
-          } else if (vis.state === 'DRIFTING' && state.feeling === 'SAFE') {
-            state.feeling = 'APPREHENSIVE';
-            state.struggleIndex = 'MODERATE';
-            state.fatiguePercent = Math.round(vis.fatigue * 100);
-            state.isSuffering = true;
+          // A. Sync from simulation visitor to feeling state (only if not stabilized)
+          if (state.feeling !== 'STABILIZED') {
+            if (vis.state === 'DISTRESS' && state.feeling !== 'CRITICAL_PANIC') {
+              state.feeling = 'CRITICAL_PANIC';
+              state.struggleIndex = 'CRITICAL';
+              state.fatiguePercent = Math.round(vis.fatigue * 100);
+              state.isSuffering = true;
+            } else if (vis.state === 'STRUGGLING' && state.feeling === 'SAFE') {
+              state.feeling = 'UNSAFE';
+              state.struggleIndex = 'HIGH';
+              state.fatiguePercent = Math.round(vis.fatigue * 100);
+              state.isSuffering = true;
+            } else if (vis.state === 'DRIFTING' && state.feeling === 'SAFE') {
+              state.feeling = 'APPREHENSIVE';
+              state.struggleIndex = 'MODERATE';
+              state.fatiguePercent = Math.round(vis.fatigue * 100);
+              state.isSuffering = true;
+            }
+          }
+
+          // B. Sync from feeling state to simulation visitor (Orange locator & Suffocating status)
+          if (state.feeling === 'UNSAFE' || state.feeling === 'CRITICAL_PANIC' || state.isSuffering) {
+            vis.state = state.feeling === 'CRITICAL_PANIC' ? 'DISTRESS' : 'STRUGGLING';
+            vis.distressLevel = state.feeling === 'CRITICAL_PANIC' ? 0.95 : 0.82;
+            vis.fatigue = state.fatiguePercent / 100;
+            vis.isSuffocating = true;
+            vis.color = '#f97316'; // Vivid Safety Orange in 3D & 2D simulation
+            vis.feelingState = state.feeling;
+          } else if (state.feeling === 'STABILIZED' || state.feeling === 'SAFE') {
+            vis.isSuffocating = false;
+            vis.distressLevel = 0.1;
+            vis.color = '#38bdf8';
+            vis.feelingState = state.feeling;
+            vis.state = 'SWIMMING';
           }
         }
       }

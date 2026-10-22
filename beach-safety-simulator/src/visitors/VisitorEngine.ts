@@ -31,6 +31,18 @@ export class VisitorEngine {
 
     const initialVisitors: Visitor[] = [];
 
+    // Seed paired connected wristband visitors (WB-101 to WB-106)
+    // Ensures real-time connection between wristband readings, 3D simulation, and orange locator highlights
+    // In normal baseline simulation, ALL visitors start safe/nominal. Demo distress is explicitly triggered on demand.
+    initialVisitors.push(
+      VisitorGenerator.generateWristbandVisitor('VIS-REST-01', 'Karthik Varma', 'WB-105', 740, 440, 'RIP_CURRENT_CORRIDOR_SOUTH', 'SWIMMING', false),
+      VisitorGenerator.generateWristbandVisitor('VIS-SWIM-04', 'Pooja Reddy', 'WB-104', 520, 410, 'CENTRAL_SURF', 'SWIMMING', false),
+      VisitorGenerator.generateWristbandVisitor('VIS-SWIM-01', 'Rohan Sharma', 'WB-101', 220, 350, 'SWIM_ZONE_NORTH', 'SWIMMING', false),
+      VisitorGenerator.generateWristbandVisitor('VIS-SWIM-02', 'Ananya Rao', 'WB-102', 280, 380, 'SWIM_ZONE_NORTH', 'SWIMMING', false),
+      VisitorGenerator.generateWristbandVisitor('VIS-SWIM-03', 'Vikram Patel', 'WB-103', 490, 390, 'CENTRAL_SURF', 'SWIMMING', false),
+      VisitorGenerator.generateWristbandVisitor('VIS-SHORE-01', 'Sneha Nair', 'WB-106', 790, 240, 'SHORELINE_SOUTH', 'BEACH', false),
+    );
+
     // Spawn 2-3 families
     for (let i = 0; i < 3; i++) {
       const family = VisitorGenerator.generateFamilyGroup(
@@ -161,6 +173,34 @@ export class VisitorEngine {
         SensoryPerceptionEngine.propagateSystemWarning(v, env, zones, 'ACOUSTIC_SIREN');
       }
     });
+  }
+
+  /**
+   * Explicitly triggers on-demand demo distress scenario for a wristband visitor
+   */
+  public triggerDemoDistressScenario(wristbandId: string = 'WB-105'): boolean {
+    const visitor = this.visitorManager.getActiveVisitors().find((v) => v.wristbandId === wristbandId);
+    if (!visitor) return false;
+    visitor.state = 'STRUGGLING';
+    visitor.isSuffocating = true;
+    visitor.color = '#f97316';
+    visitor.distressLevel = 0.88;
+    visitor.feelingState = 'UNSAFE';
+    return true;
+  }
+
+  /**
+   * Recovers/resets a distressed visitor back to normal swimming state
+   */
+  public resetDistressScenario(wristbandId: string = 'WB-105'): boolean {
+    const visitor = this.visitorManager.getActiveVisitors().find((v) => v.wristbandId === wristbandId);
+    if (!visitor) return false;
+    visitor.state = 'SWIMMING';
+    visitor.isSuffocating = false;
+    visitor.color = '#38bdf8';
+    visitor.distressLevel = 0.0;
+    visitor.feelingState = 'SAFE';
+    return true;
   }
 }
 

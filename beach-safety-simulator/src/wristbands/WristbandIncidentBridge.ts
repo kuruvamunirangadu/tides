@@ -169,6 +169,14 @@ export class WristbandIncidentBridge {
     return this.wristbandToIncidentMap.get(id);
   }
 
+  public resolveWristbandIncident(wbId: WristbandId): void {
+    const incidentId = this.wristbandToIncidentMap.get(wbId);
+    if (incidentId) {
+      this.incidentManager.resolveIncident(incidentId);
+      this.wristbandToIncidentMap.delete(wbId);
+    }
+  }
+
   public clear(): void {
     this.wristbandToIncidentMap.clear();
   }

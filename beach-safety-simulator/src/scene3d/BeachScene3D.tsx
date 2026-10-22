@@ -66,9 +66,13 @@ import { MissionReplayEngine } from '../command-center/unified/MissionReplayEngi
 import { WristbandVisual3D } from './wristbands/WristbandVisual3D';
 import { WristbandOperationsHUD } from '../wristbands/components/WristbandOperationsHUD';
 import { WristbandRegistry } from '../wristbands/WristbandRegistry';
+import { SwimmerFeelingControlManager } from '../wristbands/feeling/SwimmerFeelingControlManager';
 import { CameraDroneWristbandVisual3D } from './integration/CameraDroneWristbandVisual3D';
 import { CameraDroneWristbandPanel } from '../wristbands/components/CameraDroneWristbandPanel';
 import { ControlledPilotPanel } from '../pilot/components/ControlledPilotPanel';
+import { TidalFlowVisual3D } from './hazards/TidalFlowVisual3D';
+import { TidalFlowHUD } from './hazards/TidalFlowHUD';
+import { SwimmerDistressNotification } from './components/SwimmerDistressNotification';
 import {
   Shield,
   ShieldAlert,
@@ -185,6 +189,15 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
 
   // Phase 5: Controlled Field Pilot & Real-World Validation Framework
   const [isPilotPanelOpen, setIsPilotPanelOpen] = useState<boolean>(false);
+
+  // Phase 1 & 2: Dynamic Tidal Flow, Ocean Current Vectors & Rip-Current Mapping Subsystem
+  const [isTidalFlowVisible, setIsTidalFlowVisible] = useState<boolean>(true);
+  const [isTidalDyeVisible, setIsTidalDyeVisible] = useState<boolean>(true);
+  const [isFeederVisible, setIsFeederVisible] = useState<boolean>(true);
+  const [isRipCorridorVisible, setIsRipCorridorVisible] = useState<boolean>(true);
+  const [isPlumeVisible, setIsPlumeVisible] = useState<boolean>(true);
+  const [isTidalHUDOpen, setIsTidalHUDOpen] = useState<boolean>(false);
+  const tidalFlowVisualRef = useRef<TidalFlowVisual3D | null>(null);
 
   // 3D Viewport Presentation, Overlays & Master Tools State
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState<boolean>(false);
@@ -351,6 +364,16 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
     integratedSafetyVisualRef.current = integratedSafetyVisual;
     scene.add(integratedSafetyVisual.group);
 
+    // 25. Phase 1 & 2: 3D Dynamic Tidal Flow, Ocean Current Vectors & Rip Mapping Layer
+    const tidalFlowVisual = new TidalFlowVisual3D();
+    tidalFlowVisualRef.current = tidalFlowVisual;
+    tidalFlowVisual.setVisible(isTidalFlowVisible);
+    tidalFlowVisual.setDyeTracerVisible(isTidalDyeVisible);
+    tidalFlowVisual.setFeederChannelsVisible(isFeederVisible);
+    tidalFlowVisual.setRipCorridorVisible(isRipCorridorVisible);
+    tidalFlowVisual.setOffshorePlumeVisible(isPlumeVisible);
+    scene.add(tidalFlowVisual.group);
+
     // Milestone 12: Independent Per-Swimmer Rescue Check Evaluator
     const perSwimmerEvaluator = PerSwimmerRescueEvaluator.getInstance();
 
@@ -407,6 +430,9 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
 
       const ripSpeed = environmentRef.current.waterCurrent ?? 1.9;
       ripVisual.update(delta, isRipActive, ripSpeed);
+
+      // Phase 1: Update Dynamic Tidal Flow, Ocean Current Vectors & Fluorescent Dye Tracer
+      tidalFlowVisual.update(delta, environmentRef.current);
 
       // Milestone 6: Update 3D Predictive Hazard Expansion Plume
       const predictions = ForecastEngine.getInstance().generateForecast('TREND_BASELINE');
@@ -613,6 +639,21 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
           if (obj.userData?.visitorId) {
             handleTrackSwimmer(obj.userData.visitorId);
             setIsActionFlowHUDOpen(true);
+            const wb = WristbandRegistry.getInstance().getWristbandByVisitorId(obj.userData.visitorId);
+            if (wb && typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('tides:select-wristband', { detail: { wristbandId: wb.id } }));
+            }
+            return;
+          }
+          if (obj.userData?.wristbandId) {
+            const wbId = obj.userData.wristbandId;
+            const wb = WristbandRegistry.getInstance().getWristband(wbId);
+            if (wb?.pairedVisitorId) {
+              handleTrackSwimmer(wb.pairedVisitorId);
+            }
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('tides:select-wristband', { detail: { wristbandId: wbId } }));
+            }
             return;
           }
           if (obj.userData?.resourceId) {
@@ -662,6 +703,7 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
       missionReplayVisual.destroy();
       wristbandVisual.dispose();
       integratedSafetyVisual.dispose();
+      tidalFlowVisual.dispose();
       droneCameraFrustum.dispose();
       coastalCoverageVisual.dispose();
       DroneVisionManager.getInstance().reset();
@@ -726,6 +768,31 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
     aerialLayerRef.current?.setOpacity(aerialOpacity);
   }, [aerialOpacity]);
 
+  // Sync 3D Tidal Flow & Ocean Current Vectors visibility (Phase 1)
+  useEffect(() => {
+    tidalFlowVisualRef.current?.setVisible(isTidalFlowVisible);
+  }, [isTidalFlowVisible]);
+
+  // Sync 3D Fluorescent Dye Tracer Plume visibility (Phase 1)
+  useEffect(() => {
+    tidalFlowVisualRef.current?.setDyeTracerVisible(isTidalDyeVisible);
+  }, [isTidalDyeVisible]);
+
+  // Sync 3D Feeder Channels visibility (Phase 2)
+  useEffect(() => {
+    tidalFlowVisualRef.current?.setFeederChannelsVisible(isFeederVisible);
+  }, [isFeederVisible]);
+
+  // Sync 3D Rip Neck Corridor visibility (Phase 2)
+  useEffect(() => {
+    tidalFlowVisualRef.current?.setRipCorridorVisible(isRipCorridorVisible);
+  }, [isRipCorridorVisible]);
+
+  // Sync 3D Offshore Dispersal Plume visibility (Phase 2)
+  useEffect(() => {
+    tidalFlowVisualRef.current?.setOffshorePlumeVisible(isPlumeVisible);
+  }, [isPlumeVisible]);
+
   const handleSelectPreset = (preset: CameraPresetType) => {
     setActivePreset(preset);
     cameraManagerRef.current?.setPreset(preset);
@@ -743,6 +810,30 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
     const transform = mapper.map(v, beachRef.current, environmentRef.current);
     cameraManagerRef.current?.focusOn(new THREE.Vector3(transform.x, transform.y, transform.z), 18);
   };
+
+  // Global listener to locate and frame endangered / suffocated swimmers in 3D
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__tides__ = {
+        feelingManager: SwimmerFeelingControlManager.getInstance(),
+        wristbandRegistry: WristbandRegistry.getInstance(),
+      };
+    }
+
+    const handleLocateEvent = (e: any) => {
+      let visitorId = e?.detail?.visitorId;
+      const wristbandId = e?.detail?.wristbandId;
+      if (!visitorId && wristbandId) {
+        const wb = WristbandRegistry.getInstance().getWristband(wristbandId);
+        visitorId = wb?.pairedVisitorId;
+      }
+      if (visitorId) {
+        handleTrackSwimmer(visitorId);
+      }
+    };
+    window.addEventListener('tides:locate-swimmer', handleLocateEvent);
+    return () => window.removeEventListener('tides:locate-swimmer', handleLocateEvent);
+  }, []);
 
   const handleTrackBoat = () => {
     const boat = RescueCoordinator.getInstance().registry.getResource('RB-01');
@@ -878,6 +969,23 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
             >
               <Shield className="w-3.5 h-3.5" />
               <span>Command Center</span>
+            </button>
+
+            {/* Phase 1: Tidal Flow & Current HUD Launcher */}
+            <button
+              onClick={() => setIsTidalHUDOpen((p) => !p)}
+              title="Toggle Tidal Flow, Ocean Current Vectors & Fluorescent Dye Tracer (Phase 1)"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl border transition cursor-pointer ${
+                isTidalHUDOpen || isTidalFlowVisible
+                  ? 'bg-teal-500/20 text-teal-300 border-teal-500/50 shadow-teal-500/10'
+                  : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
+              }`}
+            >
+              <Waves className="w-3.5 h-3.5 text-teal-400" />
+              <span>Tidal Flow</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${isTidalFlowVisible ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                {isTidalFlowVisible ? 'ON' : 'OFF'}
+              </span>
             </button>
 
             {/* 3D Tools & Overlays Dropdown */}
@@ -1117,6 +1225,52 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
                     </div>
                   </div>
 
+                  {/* Section: Coastal Hydrodynamics, Tides & Rip Mapping (Phase 1 & Phase 2) */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">🌊 Coastal Hydrodynamics & Rip Mapping</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => { setIsTidalFlowVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isTidalFlowVisible ? 'bg-teal-500/20 text-teal-300 border-teal-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Tidal Flow Vectors</span>
+                        <span className="text-[9px] font-bold">{isTidalFlowVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsTidalDyeVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isTidalDyeVisible ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Dye Tracer Plume</span>
+                        <span className="text-[9px] font-bold">{isTidalDyeVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsFeederVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isFeederVisible ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Feeder Channels</span>
+                        <span className="text-[9px] font-bold">{isFeederVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsRipCorridorVisible((p) => !p); }}
+                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${isRipCorridorVisible ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'}`}
+                      >
+                        <span className="font-bold">Rip Neck Jet</span>
+                        <span className="text-[9px] font-bold">{isRipCorridorVisible ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsTidalHUDOpen(true); setIsToolsMenuOpen(false); }}
+                        className="col-span-2 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between text-slate-300 cursor-pointer"
+                      >
+                        <span className="font-bold text-teal-300">Open Tidal & Rip Telemetry HUD</span>
+                        <span className="text-[9px] font-bold text-teal-400">Launch</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Reset All Overlays */}
                   <div className="pt-2 border-t border-slate-800">
                     <button
@@ -1174,6 +1328,13 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
             <span>Exit Zen Mode</span>
           </button>
         </div>
+      )}
+
+      {/* Real-time Swimmer Distress / Suffocation Emergency Notification Banner */}
+      {!isCleanView && (
+        <SwimmerDistressNotification
+          onLocateSwimmer={(visId) => handleTrackSwimmer(visId)}
+        />
       )}
 
       {/* Floating Tactical Navigation Watermark / Help Badge */}
@@ -1381,6 +1542,26 @@ export const BeachScene3D: React.FC<Scene3DProps> = ({
       {/* Phase 5: Controlled Field Pilot & Real-World Validation Panel */}
       {isPilotPanelOpen && (
         <ControlledPilotPanel onClose={() => setIsPilotPanelOpen(false)} />
+      )}
+
+      {/* Phase 1 & 2: Tidal Flow & Rip Currents HUD */}
+      {isTidalHUDOpen && (
+        <div className="absolute top-28 left-4 z-30 pointer-events-auto">
+          <TidalFlowHUD
+            environment={environment}
+            isLayerVisible={isTidalFlowVisible}
+            onToggleLayer={() => setIsTidalFlowVisible((p) => !p)}
+            isDyeTracerVisible={isTidalDyeVisible}
+            onToggleDyeTracer={() => setIsTidalDyeVisible((p) => !p)}
+            isFeederVisible={isFeederVisible}
+            onToggleFeeder={() => setIsFeederVisible((p) => !p)}
+            isRipCorridorVisible={isRipCorridorVisible}
+            onToggleRipCorridor={() => setIsRipCorridorVisible((p) => !p)}
+            isPlumeVisible={isPlumeVisible}
+            onTogglePlume={() => setIsPlumeVisible((p) => !p)}
+            onClose={() => setIsTidalHUDOpen(false)}
+          />
+        </div>
       )}
     </div>
   );

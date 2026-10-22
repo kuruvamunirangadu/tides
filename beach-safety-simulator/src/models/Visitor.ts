@@ -75,6 +75,10 @@ export interface Visitor {
 
   // Safety & Tracking
   color: string;
+  name?: string;
+  wristbandId?: string;
+  isSuffocating?: boolean;
+  feelingState?: 'SAFE' | 'APPREHENSIVE' | 'UNSAFE' | 'CRITICAL_PANIC' | 'STABILIZED';
   warningCount: number;
   lastWarningTime?: number;
   distressState?: DistressState;
