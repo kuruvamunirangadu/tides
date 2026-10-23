@@ -44,13 +44,30 @@ class AudioEngine:
         script_key = hazard_type if hazard_type in LOCALIZED_SCRIPTS else "RIP_CURRENT_SURGE"
         messages = LOCALIZED_SCRIPTS[script_key]
 
+        severity_upper = str(severity).upper()
+        if severity_upper in ["CRITICAL", "HIGH"]:
+            mapped_severity = "CRITICAL"
+        elif severity_upper in ["WARNING", "MODERATE"]:
+            mapped_severity = "WARNING"
+        else:
+            mapped_severity = "INFO"
+
+        if "RIP" in hazard_type:
+            alert_type = "RIP_CURRENT_SURGE"
+        elif "GEOFENCE" in hazard_type:
+            alert_type = "GEOFENCE_BREACH"
+        elif "SQUALL" in hazard_type:
+            alert_type = "SUDDEN_SQUALL"
+        else:
+            alert_type = "FLAG_ESCALATION"
+
         return AudioBroadcastPayload(
             broadcast_id=f"BC-{uuid4().hex[:8].upper()}",
             beach_id=beach_id,
-            alert_type="RIP_CURRENT_SURGE" if "RIP" in hazard_type else "FLAG_ESCALATION",
-            severity=severity,
+            alert_type=alert_type,
+            severity=mapped_severity,
             messages=messages,
-            audio_chime_type="CRITICAL_SIREN" if severity == "CRITICAL" else "STANDARD_WARNING",
+            audio_chime_type="CRITICAL_SIREN" if mapped_severity == "CRITICAL" else "STANDARD_WARNING",
             target_speaker_zones=["TOWER_1", "TOWER_2"]
         )
 
